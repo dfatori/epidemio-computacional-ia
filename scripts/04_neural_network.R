@@ -1,5 +1,5 @@
 # ══════════════════════════════════════════════════════════════════════════════
-# NHANES 2021-2023 — Rede Neural para Predição de Infarto (foco didático)
+# NHANES 2021-2023 — Rede Neural para Predição de HAS (foco didático)
 # Rode setup.R antes para ter nhanes_cardio disponível
 # ══════════════════════════════════════════════════════════════════════════════
 
@@ -20,9 +20,9 @@
 #   ESSENCIAL para redes neurais: sem isso variáveis em escalas grandes
 #   (ex.: colesterol ~200) dominam os pesos sobre variáveis pequenas (ex.: imc ~28).
 
-receita <- recipe(infarto ~ ., data = dados_treino) %>%
+receita <- recipe(has_pas ~ ., data = dados_treino) %>%
   step_relevel(diabetes, ref_level = "Não") %>%
-  step_relevel(fumante,  ref_level = "Não/Às vezes") %>%
+  step_relevel(fumante,  ref_level = "Nunca fumou") %>%
   step_dummy(all_nominal_predictors(), one_hot = FALSE) %>%
   step_normalize(all_numeric_predictors())
 
@@ -30,7 +30,7 @@ receita <- recipe(infarto ~ ., data = dados_treino) %>%
 # mlp = Multi-Layer Perceptron — a arquitetura mais simples de rede neural.
 #
 # Arquitetura adotada (didática):
-#   Entrada → [camada oculta: 4 neurônios] → Saída (P(infarto = "Sim"))
+#   Entrada → [camada oculta: 4 neurônios] → Saída (P(HAS = "Sim"))
 #
 # hidden_units : neurônios na camada oculta
 #                (4 é suficiente aqui; em produção, tunaria via cross-validation)
@@ -60,8 +60,8 @@ modelo_nn <- wf_nn %>% fit(data = dados_treino)
 
 # ── 6. Avaliar no conjunto de teste ───────────────────────────────────────────
 predict(modelo_nn, dados_teste) %>%
-  bind_cols(dados_teste %>% select(infarto)) %>%
-  metrics(truth = infarto, estimate = .pred_class)
+  bind_cols(dados_teste %>% select(has_pas)) %>%
+  metrics(truth = has_pas, estimate = .pred_class)
 
 # ── 7. Visualização pedagógica da rede ────────────────────────────────────────
 # extract_fit_engine() extrai o objeto nativo do nnet, que o plotnet entende.
@@ -76,23 +76,25 @@ nomes_entrada <- extract_mold(modelo_nn)$predictors |> names()
 # Inclui tanto os labels em inglês (nhanesA original) quanto PT-BR (após fct_recode),
 # pois o resultado depende de quando setup.R foi rodado na sessão atual.
 legenda <- c(
-  # ── contínua ────────────────────────────────
+  # ── contínuas ───────────────────────────────
   "idade"                  = "Idade",
+  "whr"                    = "Razão cintura/estatura",
+  "renda"                  = "Renda",
+  "colesterol"             = "Colesterol",
   # ── sexo (PT-BR / inglês) ───────────────────
   "sexo_Feminino"          = "Sexo\n(feminino)",
   "sexo_Masculino"         = "Sexo\n(masculino)",
   "sexo_Female"            = "Sexo\n(feminino)",
   "sexo_Male"              = "Sexo\n(masculino)",
-  # ── hipertensão ─────────────────────────────
-  "hipertens_Sim"          = "Hipertensão\n(sim)",
-  "hipertens_Não"          = "Hipertensão\n(não)",
-  "hipertens_Yes"          = "Hipertensão\n(sim)",
-  "hipertens_No"           = "Hipertensão\n(não)",
+  # ── HAS pela PAS ────────────────────────────
+  "has_pas_Sim"            = "Hipertensão\n(sim)",
+  "has_pas_Não"            = "Hipertensão\n(não)",
   # ── diabetes ────────────────────────────────
   "diabetes_Sim"           = "Diabetes\n(sim)",
   "diabetes_Não"           = "Diabetes\n(não)",
-  # ── fumante (SMQ040: status atual) ────────────────────
-  "fumante_Todo dia"       = "Fumante\n(todo dia)",
+  # ── fumante (SMQ020+SMQ040: 3 categorias, ref = Nunca fumou) ──────
+  "fumante_Ex.fumante"     = "Ex-fumante",
+  "fumante_Fumante.atual"  = "Fumante\n(atual)",
   # ── raça/etnia ──────────────────────────────
   "raca_Branco"            = "Raça\n(branco)",
   "raca_Demais"            = "Raça\n(demais)",
@@ -114,7 +116,7 @@ rotulos_entrada[is.na(rotulos_entrada)] <- nomes_entrada[is.na(rotulos_entrada)]
 #   │    Combinam as entradas via função de ativação (sigmoide/logística)
 #   │    O nó "B2" é o bias da camada de saída
 #   └─ Coluna da direita (O1): neurônio de SAÍDA
-#        Emite P(infarto = "Sim") entre 0 e 1
+#        Emite P(HAS = "Sim") entre 0 e 1
 #
 #   CONEXÕES (linhas)
 #   ├─ Azul   : peso POSITIVO → ativa / aumenta a probabilidade de saída
@@ -125,7 +127,7 @@ p_net <- as.ggplot(function() {
   plotnet(
     nn_nativo,
     x_names    = rotulos_entrada,  # rótulos PT-BR para os nós de entrada
-    y_names    = "Infarto",        # rótulo PT-BR para o nó de saída
+    y_names    = "HAS",        # rótulo PT-BR para o nó de saída
     circle_cex = 5,                # tamanho dos nós
     cex_val    = 0.85,             # tamanho do texto dos rótulos
     bord_col   = "black",          # borda dos nós
@@ -139,7 +141,7 @@ p_net <- as.ggplot(function() {
   )
   title(
     main    = "",
-    sub     = "Azul = peso positivo  |  Vermelho = peso negativo  |  Espessura = magnitude do peso",
+    sub     = "Azul = peso positivo | Vermelho = peso negativo | Espessura = magnitude do peso",
     cex.sub = 0.8,
     col.sub = "gray40"
   )
@@ -152,7 +154,7 @@ ggsave("output/04_neural_network/estrutura.png", plot = p_net,
 # ──────────────────────────────────────────────────────────────────────────────
 # 1. Rastreie caminhos: um preditor com linhas grossas em AZUL chegando
 #    a neurônios ocultos que também têm linhas grossas em AZUL para a saída
-#    provavelmente contribui POSITIVAMENTE para o risco de infarto.
+#    provavelmente contribui POSITIVAMENTE para o risco de HAS.
 #
 # 2. Pesos grandes (linhas grossas) indicam que aquela conexão "importa mais"
 #    para o modelo — mas, ao contrário de coeficientes de regressão,
@@ -205,8 +207,8 @@ dev.off()
 # olden() percorre todos os caminhos da rede (entrada → oculta → saída)
 # multiplicando os pesos em cadeia e somando as contribuições por variável.
 # Preserva o SINAL — diferente de Garson(), que usa valores absolutos:
-#   • Barra positiva : variável aumenta a probabilidade de infarto
-#   • Barra negativa : variável reduz a probabilidade de infarto
+#   • Barra positiva : variável aumenta a probabilidade de HAS
+#   • Barra negativa : variável reduz a probabilidade de HAS
 
 # Rótulos sem "\n" para caber melhor no eixo horizontal do gráfico de barras
 rotulos_olden <- unname(gsub("\n", " ", rotulos_entrada))
@@ -231,13 +233,8 @@ p_olden <- ggplot(imp_df,
   labs(
     title   = "Importância das Variáveis — Método Olden",
     x       = NULL,
-    y       = "Importância relativa (preserva sinal)",
-    caption = paste(
-      "Azul → variável aumenta o risco de infarto",
-      "Vermelho → variável reduz o risco de infarto",
-      sep = "  |  "
-    )
-  ) +
+    y       = "Importância relativa (preserva sinal)"
+    ) +
   theme_minimal(base_size = 12) +
   theme(plot.caption = element_text(color = "gray40", size = 9))
 print(p_olden)
@@ -254,21 +251,21 @@ ggsave("output/04_neural_network/importancia.png", plot = p_olden, width = 8, he
 #   AUC > 0,7 → discriminação aceitável
 
 probs_teste <- predict(modelo_nn, dados_teste, type = "prob") %>%
-  bind_cols(dados_teste %>% select(infarto))
+  bind_cols(dados_teste %>% select(has_pas))
 
 # Detectar automaticamente o nome da coluna do evento positivo
 # (primeiro nível do fator: "Sim" em PT-BR ou "Yes" em inglês)
-col_evento <- paste0(".pred_", levels(dados_teste$infarto)[1])
+col_evento <- paste0(".pred_", levels(dados_teste$has_pas)[1])
 
 probs_roc <- probs_teste %>%
   rename(prob_evento = all_of(col_evento))
 
 # AUC numérico
-auc_nn <- roc_auc(probs_roc, truth = infarto, prob_evento)
+auc_nn <- roc_auc(probs_roc, truth = has_pas, prob_evento)
 cat("AUC da rede neural:", round(auc_nn$.estimate, 3), "\n")
 
 # Gráfico
-roc_df <- roc_curve(probs_roc, truth = infarto, prob_evento)
+roc_df <- roc_curve(probs_roc, truth = has_pas, prob_evento)
 ponto_otimo <- roc_df %>%
   mutate(youden = sensitivity + specificity - 1) %>%
   slice_max(youden, n = 1)
@@ -341,15 +338,15 @@ modelo_2c <- workflow() %>%
 # ── AUC de cada arquitetura ───────────────────────────────────────────────────
 get_probs <- function(modelo, dados) {
   predict(modelo, dados, type = "prob") %>%
-    bind_cols(dados %>% select(infarto)) %>%
-    rename(prob_evento = all_of(paste0(".pred_", levels(dados$infarto)[1])))
+    bind_cols(dados %>% select(has_pas)) %>%
+    rename(prob_evento = all_of(paste0(".pred_", levels(dados$has_pas)[1])))
 }
 
 probs_1c <- get_probs(modelo_1c, dados_teste)
 probs_2c <- get_probs(modelo_2c, dados_teste)
 
-auc_1c <- roc_auc(probs_1c, truth = infarto, prob_evento)$.estimate
-auc_2c <- roc_auc(probs_2c, truth = infarto, prob_evento)$.estimate
+auc_1c <- roc_auc(probs_1c, truth = has_pas, prob_evento)$.estimate
+auc_2c <- roc_auc(probs_2c, truth = has_pas, prob_evento)$.estimate
 cat("AUC — 1 camada oculta :", round(auc_1c, 3), "\n")
 cat("AUC — 2 camadas ocultas:", round(auc_2c, 3), "\n")
 
@@ -360,9 +357,9 @@ cat("AUC — 2 camadas ocultas:", round(auc_2c, 3), "\n")
 # profundidade ajuda em imagens/texto (muitos parâmetros livres), não aqui.
 
 roc_comparacao <- bind_rows(
-  roc_curve(probs_1c, truth = infarto, prob_evento) %>%
+  roc_curve(probs_1c, truth = has_pas, prob_evento) %>%
     mutate(modelo = paste0("1 camada   (AUC = ", round(auc_1c, 3), ")")),
-  roc_curve(probs_2c, truth = infarto, prob_evento) %>%
+  roc_curve(probs_2c, truth = has_pas, prob_evento) %>%
     mutate(modelo = paste0("2 camadas  (AUC = ", round(auc_2c, 3), ")"))
 )
 

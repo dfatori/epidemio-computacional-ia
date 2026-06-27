@@ -1,6 +1,6 @@
 
 # ══════════════════════════════════════════════════════════════════════════════
-# NHANES 2021-2023 — Gradient Boosting para Predição de Infarto (foco didático)
+# NHANES 2021-2023 — Gradient Boosting para Predição de HAS (foco didático)
 # Rode setup.R antes para ter nhanes_cardio disponível
 # ══════════════════════════════════════════════════════════════════════════════
 
@@ -28,12 +28,12 @@
 # Mantemos os preditores como fator — gbm aceita fator mas não character
 treino_gbm <- dados_treino %>%
   mutate(
-    infarto_num = as.integer(infarto == "Sim" | infarto == "Yes")
+    has_pas_num = as.integer(has_pas == "Sim")
   )
 
 # ── 2.1 Visualizar aprendiz fraco ─────────────────────────────────
 stump <- rpart::rpart(
-  infarto ~ idade + sexo + hipertens + imc + colesterol + diabetes + fumante + sedentarismo,
+  has_pas ~ .,
   data    = dados_treino,
   control = rpart::rpart.control(maxdepth = 1, minsplit = 1, minbucket = 1, cp = -1)
 )
@@ -54,7 +54,7 @@ set.seed(42)
 # Modelo GBM completo: 500 stumps encadeados em sequência (interaction.depth = 1).
 # Cada árvore é um stump, mas o ensemble das 500 é o gradient boosting em si.
 modelo_gbm <- gbm(
-  infarto_num ~ idade + sexo + hipertens + imc + colesterol + diabetes + fumante + sedentarismo,
+  has_pas_num ~ idade + sexo + raca + whr + renda + colesterol + diabetes + fumante + sedentarismo,
   data             = treino_gbm,
   distribution     = "bernoulli",   # log-loss — adequada para classificação binária
   n.trees          = 500,           # máximo de stumps a treinar
@@ -134,13 +134,13 @@ evol_df <- purrr::map_dfr(iteracoes, function(k) {
   prob <- predict(modelo_gbm, newdata = teste_gbm, n.trees = k, type = "response")
   data.frame(
     prob    = prob,
-    infarto = dados_teste$infarto,
+    has_pas = dados_teste$has_pas,
     iter    = paste0("Árvores: ", k)
   )
 })
 evol_df$iter <- factor(evol_df$iter, levels = paste0("Árvores: ", iteracoes))
 
-p_evol <- ggplot(evol_df, aes(x = prob, fill = infarto, color = infarto)) +
+p_evol <- ggplot(evol_df, aes(x = prob, fill = has_pas, color = has_pas)) +
   geom_density(alpha = 0.4, linewidth = 0.8) +
   facet_wrap(~ iter, nrow = 2) +
   scale_fill_manual(values  = c("Sim" = "#d73027", "Yes" = "#d73027",
@@ -149,10 +149,10 @@ p_evol <- ggplot(evol_df, aes(x = prob, fill = infarto, color = infarto)) +
                                 "Não" = "#2166ac", "No"  = "#2166ac")) +
   labs(
     title    = "Evolução das Predições",
-    subtitle = "Distribuição de P(infarto) com k árvores acumuladas",
-    x        = "P(infarto = Sim)",
+    subtitle = "Distribuição de P(HAS) com k árvores acumuladas",
+    x        = "P(HAS = Sim)",
     y        = "Densidade",
-    fill     = "Infarto real", color = "Infarto real",
+    fill     = "HAS real", color = "HAS real",
     caption  = ""
   ) +
   theme_minimal(base_size = 12) +
@@ -183,7 +183,7 @@ rotulos   <- c("Rate alto (0.30)", "Rate médio (0.05)", "Rate baixo (0.01)")
 erros_lr <- purrr::map_dfr(seq_along(rates), function(i) {
   set.seed(42)
   m_tmp <- gbm(
-    infarto_num ~ idade + sexo + hipertens + imc + colesterol + diabetes + fumante + sedentarismo,
+    has_pas_num ~ idade + sexo + raca + whr + renda + colesterol + diabetes + fumante + sedentarismo,
     data              = treino_gbm,
     distribution      = "bernoulli",
     n.trees           = 300,
@@ -231,7 +231,7 @@ ggsave("output/03_gradient_boosting/learning_rate.png",
 # step_dummy: converte fatores em dummies (XGBoost aceita numérico)
 # step_normalize: não obrigatório para GB (árvores são invariantes à escala),
 #                 mas mantemos para consistência com os outros scripts
-receita_xgb <- recipe(infarto ~ ., data = dados_treino) %>%
+receita_xgb <- recipe(has_pas ~ ., data = dados_treino) %>%
   step_dummy(all_nominal_predictors(), one_hot = FALSE) %>%
   step_normalize(all_numeric_predictors())
 
@@ -267,17 +267,17 @@ modelo_xgb <- wf_xgb %>% fit(data = dados_treino)
 #   AUC = 1.0 → modelo perfeito
 #   AUC > 0.7 → discriminação aceitável
 probs_teste <- predict(modelo_xgb, dados_teste, type = "prob") %>%
-  bind_cols(dados_teste %>% select(infarto))
+  bind_cols(dados_teste %>% select(has_pas))
 
-col_evento <- paste0(".pred_", levels(dados_teste$infarto)[1])
+col_evento <- paste0(".pred_", levels(dados_teste$has_pas)[1])
 
 probs_roc <- probs_teste %>%
   rename(prob_evento = all_of(col_evento))
 
-auc_gb <- roc_auc(probs_roc, truth = infarto, prob_evento)
+auc_gb <- roc_auc(probs_roc, truth = has_pas, prob_evento)
 cat("AUC do Gradient Boosting:", round(auc_gb$.estimate, 3), "\n")
 
-roc_df <- roc_curve(probs_roc, truth = infarto, prob_evento)
+roc_df <- roc_curve(probs_roc, truth = has_pas, prob_evento)
 ponto_otimo <- roc_df %>%
   mutate(youden = sensitivity + specificity - 1) %>%
   slice_max(youden, n = 1)

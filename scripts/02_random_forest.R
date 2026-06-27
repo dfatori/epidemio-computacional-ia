@@ -1,5 +1,5 @@
 # ══════════════════════════════════════════════════════════════════════════════
-# NHANES 2021-2023 — Árvore de Decisão e Random Forest para Infarto
+# NHANES 2021-2023 — Árvore de Decisão e Random Forest para HAS
 # Rode setup.R antes para ter nhanes_cardio disponível
 # ══════════════════════════════════════════════════════════════════════════════
 
@@ -13,40 +13,29 @@
 # 3. ÁRVORE DE DECISÃO SIMPLES
 # ══════════════════════════════════════════════════════════════════════════════
 
-# 3.1 Especificação
-espec_arvore <- decision_tree(
-  tree_depth = 3,  # rasa para facilitar visualizacao
-  min_n      = 5
-) %>%
-  set_engine("rpart", model = TRUE,
-             parms = list(loss = matrix(c(0, 10, 1, 0), nrow = 2))) %>%  # falso negativo custa 10x mais (desbalanceamento)
-  set_mode("classification")
-
-# 3.2 Ajuste
-modelo_arvore <- espec_arvore %>%
-  fit(infarto ~ ., data = dados_treino)
-
-# 3.3 Visualizar a árvore
-arvore_nativa <- extract_fit_engine(modelo_arvore)
+# 3.1 Árvore rasa — profundidade 3, sem poda (cp = 0)
+arvore_nativa <- rpart::rpart(
+  has_pas ~ .,
+  data    = dados_treino,
+  control = rpart::rpart.control(
+    maxdepth = 3,  # máximo de 3 níveis de profundidade (árvore rasa / stump)
+    minsplit = 5,  # nó precisa de ao menos 5 observações para tentar um split
+    cp = -1)       # desativa o critério de parada por ganho mínimo
+)
 
 png("output/02_random_forest/stump.png", width = 900, height = 700, res = 120)
 rpart.plot(
   arvore_nativa,
   type          = 2,
-  extra         = 104,  # % por classe + proporcao de obs no no
+  extra         = 104,
   under         = TRUE,
   fallen.leaves = TRUE,
   box.palette   = "BuGn",
   roundint      = FALSE,
   ycompress     = FALSE,
-  yesno         = 0     # remove "yes/no" nos galhos numericos
+  yesno         = 0
 )
 dev.off()
-
-# 3.4 Avaliar no teste
-predict(modelo_arvore, dados_teste) %>%
-  bind_cols(dados_teste %>% select(infarto)) %>%
-  metrics(truth = infarto, estimate = .pred_class)
 
 # ══════════════════════════════════════════════════════════════════════════════
 # 3.5 ÁRVORE PROFUNDA
@@ -56,35 +45,43 @@ predict(modelo_arvore, dados_teste) %>%
 # treino (overfitting) — ilegível e inútil em produção, mas ilustra por que
 # controlamos tree_depth na prática.
 
-espec_profunda <- decision_tree(
-  tree_depth = 15,   # permite muito mais subdivisoes
-  min_n      = 2     # divide ate nos com apenas 2 observacoes
-) %>%
-  set_engine("rpart", model = TRUE,
-             parms = list(loss = matrix(c(0, 10, 1, 0), nrow = 2))) %>%
-  set_mode("classification")
+arvore_profunda <- rpart::rpart(
+  has_pas ~ .,
+  data    = dados_treino,
+  control = rpart::rpart.control(
+    maxdepth  = 4,   # 4 níveis
+    minsplit  = 20,  # padrão do rpart; evita splits em grupos minúsculos
+    cp        = -1)
+)
 
-modelo_profundo <- espec_profunda %>%
-  fit(infarto ~ ., data = dados_treino)
-
-arvore_profunda <- extract_fit_engine(modelo_profundo)
-cat("Nós na árvore rasa:   ", nrow(modelo_arvore  %>% extract_fit_engine() %>% .$frame), "\n")
+cat("Nós na árvore rasa:   ", nrow(arvore_nativa$frame), "\n")
 cat("Nós na árvore profunda:", nrow(arvore_profunda$frame), "\n")
 
-png("output/02_random_forest/arvore_profunda.png", width = 4000, height = 2800, res = 120)
+png("output/02_random_forest/arvore_profunda.png", width = 2200, height = 1400, res = 120)
 rpart.plot(
   arvore_profunda,
   type          = 2,
   extra         = 104,
   under         = TRUE,
-  fallen.leaves = TRUE,
+  fallen.leaves = FALSE,  # evita comprimir tudo na base
   box.palette   = "BuGn",
   roundint      = FALSE,
-  ycompress     = TRUE,
+  ycompress     = FALSE,
   yesno         = 0,
-  cex           = 2
+  cex           = 0.6
 )
 dev.off()
+
+# 3.2 Avaliar árvore rasa no teste (via tidymodels para consistência)
+espec_arvore <- decision_tree(tree_depth = 3, min_n = 5, cost_complexity = 0.001) %>%
+  set_engine("rpart") %>%
+  set_mode("classification")
+
+modelo_arvore <- espec_arvore %>% fit(has_pas ~ ., data = dados_treino)
+
+predict(modelo_arvore, dados_teste) %>%
+  bind_cols(dados_teste %>% select(has_pas)) %>%
+  metrics(truth = has_pas, estimate = .pred_class)
 
 # ══════════════════════════════════════════════════════════════════════════════
 # 4. RANDOM FOREST
@@ -93,34 +90,34 @@ dev.off()
 # 4.1 Especificação
 espec_rf <- rand_forest(
   trees = 500,
-  mtry  = floor(sqrt(ncol(dados_treino) - 1))  # regra padrao para classificacao
+  mtry  = floor(sqrt(ncol(dados_treino) - 1)) # regra padrao para classificacao
 ) %>%
   set_engine("ranger", importance = "impurity") %>%
   set_mode("classification")
 
 # 4.2 Ajuste
 modelo_rf <- espec_rf %>%
-  fit(infarto ~ ., data = dados_treino)
+  fit(has_pas ~ ., data = dados_treino)
 
 # 4.3 Avaliar no teste — ROC + AUC
 # Usamos predict(type="prob") igual aos outros scripts para comparação direta
 probs_teste_rf <- predict(modelo_rf, dados_teste, type = "prob") %>%
   bind_cols(dados_teste %>% 
-              select(infarto))
+              select(has_pas))
 
-col_evento <- paste0(".pred_", levels(dados_teste$infarto)[1])
+col_evento <- paste0(".pred_", levels(dados_teste$has_pas)[1])
 probs_roc_rf <- probs_teste_rf %>% rename(prob_evento = all_of(col_evento))
 
-auc_rf <- roc_auc(probs_roc_rf, truth = infarto, prob_evento)
+auc_rf <- roc_auc(probs_roc_rf, truth = has_pas, prob_evento)
 cat("AUC do Random Forest:", round(auc_rf$.estimate, 3), "\n")
 
-roc_df_rf <- roc_curve(probs_roc_rf, truth = infarto, prob_evento)
+roc_df_rf <- roc_curve(probs_roc_rf, truth = has_pas, prob_evento)
 ponto_otimo_rf <- roc_df_rf %>%
   mutate(youden = sensitivity + specificity - 1) %>%
   slice_max(youden, n = 1)
 
 cat(sprintf(
-  "Limiar ótimo (Youden): %.3f  |  Sensibilidade: %.3f  |  Especificidade: %.3f\n",
+  "Limiar ótimo (Youden): %.3f | Sensibilidade: %.3f | Especificidade: %.3f\n",
   ponto_otimo_rf$.threshold, ponto_otimo_rf$sensitivity, ponto_otimo_rf$specificity
 ))
 
@@ -139,13 +136,13 @@ p_roc_rf <- roc_df_rf %>%
     hjust = 0, size = 3.2, color = "#d73027"
   ) +
   labs(
-    title   = "Curva ROC — Random Forest (NHANES 2021-2023)",
+    title   = "Curva ROC",
     x       = "1 - Especificidade  (taxa de falsos positivos)",
     y       = "Sensibilidade  (taxa de verdadeiros positivos)",
     caption = paste0(
       "AUC = ", round(auc_rf$.estimate, 3),
-      "  |  Diagonal pontilhada = modelo aleatório (AUC = 0,5)",
-      "  |  Ponto vermelho = limiar ótimo (Youden)"
+      " | Diagonal pontilhada = modelo aleatório (AUC = 0,5)",
+      " | Ponto vermelho = limiar ótimo (Youden)"
     )
   ) +
   theme_minimal(base_size = 12) +
@@ -155,13 +152,25 @@ ggsave("output/02_random_forest/roc.png", plot = p_roc_rf,
        width = 7, height = 6, dpi = 150, bg = "white")
 
 # 4.4 Importância das variáveis
-p_vip_rf <- vip(modelo_rf,
-  geom       = "col",
-  aesthetics = list(fill = "#2166ac", color = "white")
-) +
-  scale_y_discrete(labels = c("raca" = "Raça/Etnia")) +
+rotulos_rf <- c(
+  "idade"        = "Idade",
+  "whr"          = "Razão cintura/estatura",
+  "renda"        = "Renda",
+  "colesterol"   = "Colesterol",
+  "sedentarismo" = "Sedentarismo (min/dia)",
+  "sexo"         = "Sexo",
+  "raca"         = "Raça/Etnia",
+  "diabetes"     = "Diabetes",
+  "fumante"      = "Tabagismo"
+)
+
+imp_rf <- vi(modelo_rf) %>%
+  mutate(Variable = dplyr::recode(Variable, !!!rotulos_rf))
+
+p_vip_rf <- ggplot(imp_rf, aes(x = Importance, y = reorder(Variable, Importance))) +
+  geom_col(fill = "#2166ac", color = "white") +
   labs(title = "Importância de cada preditor",
-       y = "Redução média de impureza de Gini (média sobre 500 árvores)", x = NULL) +
+       x = "Redução média de impureza de Gini (média sobre 500 árvores)", y = NULL) +
   theme_minimal(base_size = 13)
 print(p_vip_rf)
 ggsave("output/02_random_forest/importancia.png", plot = p_vip_rf,
@@ -180,7 +189,7 @@ n_trees_seq <- c(1, 5, 10, 25, 50, 75, 100, 150, 200, 300, 400, 500)
 
 oob_seq <- sapply(n_trees_seq, function(n) {
   ranger::ranger(
-    infarto ~ ., data = dados_treino,
+    has_pas ~ ., data = dados_treino,
     num.trees   = n,
     probability = TRUE,
     seed        = 42
@@ -199,10 +208,9 @@ p_oob <- ggplot(oob_df, aes(x = n_arvores, y = erro_oob)) +
   scale_x_continuous(breaks = c(1, 25, 50, 100, 200, 300, 400, 500)) +
   labs(
     title    = "Convergência do Erro",
-    subtitle = "Erro Out-of-Bag calculado nos ~37% de dados não usados em cada árvore",
+    subtitle = "Erro Out-of-Bag calculado nos ~37% de dados não utilizados",
     x        = "Número de árvores",
     y        = "Erro OOB",
-    caption  = "Linha vermelha = ponto de estabilização  |  Mais árvores além desse ponto = custo sem ganho"
   ) +
   theme_minimal(base_size = 13) +
   theme(plot.caption = element_text(color = "gray40", size = 9))

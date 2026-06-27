@@ -1,5 +1,5 @@
 # ══════════════════════════════════════════════════════════════════════════════
-# NHANES 2021-2023 — Regressão Logística para Predição de Infarto (baseline)
+# NHANES 2021-2023 — Regressão Logística para Predição de HAS (baseline)
 # Rode setup.R antes para ter nhanes_cardio disponível
 # ══════════════════════════════════════════════════════════════════════════════
 
@@ -9,7 +9,7 @@
 # ══════════════════════════════════════════════════════════════════════════════
 # 2. CONCEITO CENTRAL: A FUNÇÃO LOGÍSTICA
 # ══════════════════════════════════════════════════════════════════════════════
-# A regressão logística modela a PROBABILIDADE de um evento (infarto = "Sim")
+# A regressão logística modela a PROBABILIDADE de um evento (has_pas = "Sim")
 # como função linear dos preditores, transformada pela função logística:
 #
 #   P(Y=1) = 1 / (1 + e^(-(β0 + β1·x1 + β2·x2 + ...)))
@@ -18,7 +18,7 @@
 # que poderia prever valores absurdos como P = -0.3 ou P = 1.7.
 #
 # Os coeficientes β são interpretados como LOG-ODDS:
-#   e^β = Odds Ratio (OR) — quanto a chance de infarto muda por unidade do preditor.
+#   e^β = Odds Ratio (OR) — quanto a chance de HAS muda por unidade do preditor.
 
 x_vals   <- seq(-6, 6, by = 0.05)
 log_vals <- 1 / (1 + exp(-x_vals))
@@ -27,7 +27,7 @@ plot(
   x_vals, log_vals,
   type = "l", lwd = 2.5, col = "#2166ac",
   xlab = "Combinação linear dos preditores  (β₀ + β₁x₁ + ...)",
-  ylab = "P(infarto = Sim)",
+  ylab = "P(HAS = Sim)",
   main = "Função Logística — Transforma Score Linear em Probabilidade",
   las  = 1, bty = "l", ylim = c(-0.05, 1.1)
 )
@@ -49,7 +49,7 @@ dev.off()
 # 3.1 Recipe
 # step_dummy: converte fatores em dummies (0/1)
 # step_normalize: padroniza contínuas → coeficientes comparáveis entre si
-receita_lr <- recipe(infarto ~ ., data = dados_treino) %>%
+receita_lr <- recipe(has_pas ~ ., data = dados_treino) %>%
   step_dummy(all_nominal_predictors(), one_hot = FALSE) %>%
   step_normalize(all_numeric_predictors())
 
@@ -70,7 +70,7 @@ modelo_lr <- wf_lr %>% fit(data = dados_treino)
 # 4. INTERPRETAÇÃO: ODDS RATIOS
 # ══════════════════════════════════════════════════════════════════════════════
 # O coeficiente β de cada preditor é o log-odds.
-# e^β = Odds Ratio: quanto a CHANCE de infarto multiplica por unidade do preditor.
+#   e^β = Odds Ratio: quanto a CHANCE de HAS multiplica por unidade do preditor.
 #   OR > 1 → aumenta o risco
 #   OR < 1 → reduz o risco
 #   OR = 1 → sem efeito
@@ -83,7 +83,19 @@ coefs <- tidy(extract_fit_engine(modelo_lr), conf.int = TRUE) %>%
   mutate(
     OR      = exp(estimate),
     OR_low  = exp(conf.low),
-    OR_high = exp(conf.high)
+    OR_high = exp(conf.high),
+    term    = dplyr::recode(term,
+      "idade"                 = "Idade",
+      "whr"                   = "Razão cintura/estatura",
+      "renda"                 = "Renda",
+      "colesterol"            = "Colesterol",
+      "sedentarismo"          = "Sedentarismo (min/dia)",
+      "sexo_Feminino"         = "Sexo (feminino)",
+      "raca_Branco"           = "Raça (branco)",
+      "diabetes_Sim"          = "Diabetes (sim)",
+      "fumante_Ex.fumante"    = "Ex-fumante",
+      "fumante_Fumante.atual" = "Fumante atual"
+    )
   )
 
 print(coefs %>% select(term, OR, OR_low, OR_high, p.value))
@@ -114,19 +126,19 @@ ggsave("output/01_logistic_regression/odds_ratios.png", plot = p_or,
 # Usamos ROC + AUC — mesma abordagem dos scripts seguintes, para comparação.
 
 probs_teste <- predict(modelo_lr, dados_teste, type = "prob") %>%
-  bind_cols(dados_teste %>% select(infarto))
+  bind_cols(dados_teste %>% select(has_pas))
 
-col_evento <- paste0(".pred_", levels(dados_teste$infarto)[1])
+col_evento <- paste0(".pred_", levels(dados_teste$has_pas)[1])
 
 probs_roc <- probs_teste %>%
   rename(prob_evento = all_of(col_evento))
 
-auc_lr <- roc_auc(probs_roc, truth = infarto, prob_evento)
+auc_lr <- roc_auc(probs_roc, truth = has_pas, prob_evento)
 cat("AUC da Regressão Logística:", round(auc_lr$.estimate, 3), "\n")
 
 # Ponto ótimo: critério de Youden — maximiza sensibilidade + especificidade
 # J = sens + spec - 1  →  equivalente a minimizar a distância ao canto (0,1)
-roc_df <- roc_curve(probs_roc, truth = infarto, prob_evento)
+roc_df <- roc_curve(probs_roc, truth = has_pas, prob_evento)
 ponto_otimo <- roc_df %>%
   mutate(youden = sensitivity + specificity - 1) %>%
   slice_max(youden, n = 1)

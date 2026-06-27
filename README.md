@@ -6,7 +6,7 @@ Material de aula com pipeline completo de machine learning aplicado a dados popu
 
 ## Objetivo
 
-Prever a ocorrência de **infarto do miocárdio** a partir de variáveis sociodemográficas e clínicas, comparando cinco abordagens de modelagem de forma didática e progressiva.
+Prever a ocorrência de **hipertensão arterial sistêmica (HAS)** — definida como PAS ≥ 140 mmHg — a partir de variáveis sociodemográficas e clínicas, comparando cinco abordagens de modelagem de forma didática e progressiva.
 
 ---
 
@@ -17,13 +17,12 @@ Os dados são baixados automaticamente pelo pacote [`nhanesA`](https://cran.r-pr
 | Tabela NHANES | Conteúdo |
 |---|---|
 | `DEMO_L` | Idade, sexo, raça/etnia, renda |
-| `BMX_L` | IMC, circunferência da cintura |
-| `BPQ_L` | Hipertensão diagnosticada |
+| `BMX_L` | Antropometria: cintura e estatura (para calcular razão cintura/estatura) |
+| `BPXO_L` | Pressão arterial oscilométrica — PAS ≥ 140 mmHg = **desfecho** |
 | `DIQ_L` | Diabetes diagnosticada |
 | `TCHOL_L` | Colesterol total sérico |
-| `SMQ_L` | Tabagismo |
-| `MCQ_L` | Infarto do miocárdio autorrelatado (**desfecho**) |
-| `PAQ_L` | Atividade física |
+| `SMQ_L` | Tabagismo (SMQ020 + SMQ040 → 3 categorias) |
+| `PAQ_L` | Atividade física: sedentarismo (min/dia sentado) |
 
 ### Tabela descritiva dos dados
 
@@ -42,7 +41,7 @@ Os dados são baixados automaticamente pelo pacote [`nhanesA`](https://cran.r-pr
 │   ├── 02_random_forest.R          # Árvore de Decisão + Random Forest
 │   ├── 03_gradient_boosting.R      # Gradient Boosting (gbm / XGBoost)
 │   ├── 04_neural_network.R         # Rede Neural (MLP via brulee)
-│   ├── 05_linear_regression.R      # Regressão Linear (desfecho: colesterol)
+│   ├── 05_exercicio.R              # Exercício: banco ampliado (~20 preditores)
 │   └── leftovers/
 │       ├── dag.R                   # Visualização do DAG causal
 │       ├── causal_inference.R      # Inferência causal: supercontrole vs DAG vs Causal Forest
@@ -66,21 +65,21 @@ Ou rode cada etapa individualmente na ordem abaixo:
 | # | Script | Modelo | Desfecho |
 |---|---|---|---|
 | 00 | `00_setup.R` | — | Download e limpeza dos dados |
-| 01 | `01_logistic_regression.R` | Regressão Logística | Infarto (binário) |
-| 02 | `02_random_forest.R` | Árvore de Decisão + Random Forest | Infarto (binário) |
-| 03 | `03_gradient_boosting.R` | Gradient Boosting (stumps iterativos) | Infarto (binário) |
-| 04 | `04_neural_network.R` | Rede Neural MLP (`brulee`) | Infarto (binário) |
-| 05 | `05_linear_regression.R` | Regressão Linear (OLS) | Colesterol total (mg/dL) |
+| 01 | `01_logistic_regression.R` | Regressão Logística | HAS (PAS ≥ 140 mmHg) |
+| 02 | `02_random_forest.R` | Árvore de Decisão + Random Forest | HAS (PAS ≥ 140 mmHg) |
+| 03 | `03_gradient_boosting.R` | Gradient Boosting (stumps iterativos) | HAS (PAS ≥ 140 mmHg) |
+| 04 | `04_neural_network.R` | Rede Neural MLP (`brulee`) | HAS (PAS ≥ 140 mmHg) |
+| 05 | `05_exercicio.R` | — | Expande para ~20 preditores; rode 01–04 após |
 
 ---
 
 ## Conteúdo Didático por Script
 
 - **`01` — Regressão Logística**: função logística, log-odds, odds ratio, curva ROC.
-- **`02` — Árvore + Random Forest**: critério de Gini, matrix de custo para desbalanceamento, importância de variáveis.
+- **`02` — Árvore + Random Forest**: critério de Gini, overfitting (árvore rasa vs. profunda), importância de variáveis por redução de impureza (OOB).
 - **`03` — Gradient Boosting**: conceito de *aprendiz fraco* (stump), learning rate, detecção do número ótimo de árvores via CV.
 - **`04` — Rede Neural**: pré-processamento com `step_dummy` + `step_normalize`, arquitetura MLP, visualização de pesos.
-- **`05` — Regressão Linear**: mínimos quadrados ordinários (OLS), resíduos, diagnóstico.
+- **`05` — Exercício**: baixa 9 tabelas adicionais (HbA1c, triglicerídeos, HDL, PCR, ácido úrico, creatinina, álcool, sono, PHQ-9) e reconstrói `dados`/`dados_treino`/`dados_teste` com ~20 preditores. Rode os scripts 01–04 novamente e compare os AUCs.
 
 ### Extras (`leftovers/`)
 - **`dag.R`**: construção e visualização do DAG (directed acyclic graph) para o efeito causal do tabagismo sobre infarto.
