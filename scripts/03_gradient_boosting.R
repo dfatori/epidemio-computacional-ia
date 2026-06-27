@@ -37,7 +37,7 @@ stump <- rpart::rpart(
   data    = dados_treino,
   control = rpart::rpart.control(maxdepth = 1, minsplit = 1, minbucket = 1, cp = -1)
 )
-png("output/gradient_boosting_stump.png", width = 800, height = 600, res = 120)
+png("output/03_gradient_boosting/stump.png", width = 800, height = 600, res = 120)
 rpart.plot(
   stump,
   type          = 2,
@@ -89,7 +89,7 @@ modelo_gbm <- gbm(
 
 # gbm.perf() cria o gráfico internamente (base R), não retorna objeto ggplot.
 # Usamos png()/dev.off() para capturar o gráfico antes de ele ser exibido.
-png("output/gradient_boosting_curva_aprendizado.png", width = 900, height = 700, res = 120)
+png("output/03_gradient_boosting/curva_aprendizado.png", width = 900, height = 700, res = 120)
 n_otimo <- gbm.perf(
   modelo_gbm,
   method  = "cv",
@@ -162,7 +162,7 @@ p_evol <- ggplot(evol_df, aes(x = prob, fill = infarto, color = infarto)) +
     strip.text       = element_text(face = "bold")
   )
 print(p_evol)
-ggsave("output/gradient_boosting_evolucao_predicoes.png", plot = p_evol,
+ggsave("output/03_gradient_boosting/evolucao_predicoes.png", plot = p_evol,
        width = 9, height = 7, dpi = 150, bg = "white")
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -212,7 +212,7 @@ p_lr <- ggplot(erros_lr, aes(x = arvore, y = erro, color = rotulo)) +
   theme_minimal(base_size = 13) +
   theme(legend.position = "top")
 print(p_lr)
-ggsave("output/gradient_boosting_learning_rate.png", 
+ggsave("output/03_gradient_boosting/learning_rate.png", 
           plot = p_lr, 
           width = 8, 
           height = 6, 
@@ -314,7 +314,7 @@ p_roc <- roc_df %>%
   theme_minimal(base_size = 12) +
   theme(plot.caption = element_text(color = "gray40", size = 9))
 print(p_roc)
-ggsave("output/gradient_boosting_roc.png", plot = p_roc, width = 7, height = 6, dpi = 150, bg = "white")
+ggsave("output/03_gradient_boosting/roc.png", plot = p_roc, width = 7, height = 6, dpi = 150, bg = "white")
 
 # ══════════════════════════════════════════════════════════════════════════════
 # 6. IMPORTÂNCIA DAS VARIÁVEIS
@@ -330,6 +330,7 @@ p_vip <- vip(
   geom         = "col",
   aesthetics   = list(fill = "#2166ac", color = "white")
 ) +
+  scale_y_discrete(labels = c("raca_Branco" = "Raça/Etnia")) +
   labs(
     title    = "Importância das Variáveis — Gradient Boosting (XGBoost)",
     subtitle = "Ganho total acumulado em todas as árvores",
@@ -337,7 +338,7 @@ p_vip <- vip(
   ) +
   theme_minimal(base_size = 13)
 print(p_vip)
-ggsave("output/gradient_boosting_importancia.png", plot = p_vip, width = 7, height = 5, dpi = 150, bg = "white")
+ggsave("output/03_gradient_boosting/importancia.png", plot = p_vip, width = 7, height = 5, dpi = 150, bg = "white")
 
 # ══════════════════════════════════════════════════════════════════════════════
 # 7. COMPARAÇÃO COM REGRESSÃO LOGÍSTICA (baseline)

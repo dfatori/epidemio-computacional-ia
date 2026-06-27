@@ -20,6 +20,7 @@ pkg_load("gbm")
 pkg_load("NeuralNetTools")
 pkg_load("ggplotify")
 pkg_load("brulee")
+pkg_load("webshot2")
 # torch::install_torch() # se precisar
 
 # ── 1. Carregar tabelas ────────────────────
@@ -142,6 +143,26 @@ nhanes_cardio <- nhanes_cardio %>%
                      "Casado(a)/União estável"             = "Married/Living with partner",
                      "Viúvo(a)/Divorciado(a)/Separado(a)" = "Widowed/Divorced/Separated",
                      "Solteiro(a)"                        = "Never married")
+  ) %>%
+  mutate(
+    diabetes     = fct_collapse(diabetes,
+                     "Sim" = "Sim",
+                     "Não" = c("Não", "Limítrofe")),
+    fumante      = fct_collapse(fumante,
+                     "Todo dia"      = "Todo dia",
+                     "Não/Às vezes"  = c("Não fuma", "Às vezes")),
+    est_civil    = fct_collapse(est_civil,
+                     "Casado(a)/União estável" = "Casado(a)/União estável",
+                     "Demais"                  = c("Viúvo(a)/Divorciado(a)/Separado(a)", "Solteiro(a)")),
+    raca         = fct_collapse(raca,
+                     "Branco" = "Branco não-hispânico",
+                     "Demais" = c("Mexicano-americano", "Outro hispânico",
+                                  "Negro não-hispânico", "Asiático não-hispânico",
+                                  "Outra raça/multirracial")),
+    escolaridade = fct_collapse(escolaridade,
+                     "Graduação ou mais" = "Graduação ou mais",
+                     "Sem graduação"     = c("< 9º ano", "9º-11º ano",
+                                             "Ensino médio/GED", "Faculdade incompleta"))
   )
 
 # ── 6. Verificar resultado final ──────────────────────────────────────────────
@@ -173,14 +194,19 @@ tabela_desc <- nhanes_cardio %>%
     )
   )
 
-# tabela_desc
-tabela_desc %>% as_gt() %>% gt::gtsave("output/setup_tabela_descritiva.html")
+# Tabela descritiva em HTML e PNG
+tabela_desc %>% 
+  as_gt() %>% 
+  gt::gtsave("output/00_setup/tabela_descritiva.html")
+tabela_desc %>% 
+  as_gt() %>% 
+  gt::gtsave("output/00_setup/tabela_descritiva.png")
 
 # ── 8. Preparar dados para modelagem ──────────────────────────────────────────
 # Preditores usados em TODOS os scripts de modelagem (01 a 04).
 # Split feito aqui uma única vez — garante comparabilidade entre modelos.
 dados <- nhanes_cardio %>%
-  select(infarto, idade, sexo, hipertens, imc, colesterol, diabetes, fumante, sedentarismo) %>%
+  select(infarto, idade, sexo, raca, hipertens, imc, colesterol, diabetes, fumante, sedentarismo) %>%
   drop_na()
 
 set.seed(42)

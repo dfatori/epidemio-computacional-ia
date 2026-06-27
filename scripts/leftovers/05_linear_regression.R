@@ -64,7 +64,7 @@ p_ols <- ggplot(demo_ols, aes(x = idade, y = colesterol)) +
     plot.caption       = element_text(color = "gray40", size = 9)
   )
 print(p_ols)
-ggsave("output/linear_regression_ols_conceito.png", plot = p_ols,
+ggsave("output/05_linear_regression/ols_conceito.png", plot = p_ols,
        width = 8, height = 6, dpi = 150, bg = "white")
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -128,7 +128,7 @@ p_coefs <- ggplot(coefs_lm, aes(x = estimate, y = reorder(term, estimate))) +
   theme_minimal(base_size = 13) +
   theme(legend.position = "top")
 print(p_coefs)
-ggsave("output/linear_regression_coeficientes.png", plot = p_coefs,
+ggsave("output/05_linear_regression/coeficientes.png", plot = p_coefs,
        width = 8, height = 6, dpi = 150, bg = "white")
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -177,7 +177,7 @@ p_pred <- ggplot(preds_teste, aes(x = predito, y = observado)) +
   theme_minimal(base_size = 13) +
   theme(plot.caption = element_text(color = "gray40", size = 9))
 print(p_pred)
-ggsave("output/linear_regression_obs_vs_pred.png", plot = p_pred,
+ggsave("output/05_linear_regression/obs_vs_pred.png", plot = p_pred,
        width = 7, height = 6, dpi = 150, bg = "white")
 
 # 5.2 Diagnóstico: resíduos vs. predito
@@ -195,7 +195,7 @@ p_resid <- ggplot(preds_teste, aes(x = predito, y = residuo)) +
   theme_minimal(base_size = 13) +
   theme(plot.caption = element_text(color = "gray40", size = 9))
 print(p_resid)
-ggsave("output/linear_regression_residuos.png", plot = p_resid,
+ggsave("output/05_linear_regression/residuos.png", plot = p_resid,
        width = 7, height = 6, dpi = 150, bg = "white")
 
 # ══════════════════════════════════════════════════════════════════════════════

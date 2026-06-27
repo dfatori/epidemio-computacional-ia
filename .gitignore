@@ -4,12 +4,6 @@
 .Rproj.user/
 *.Rproj
 
-# Data (evitar subir dados sensíveis)
-data/
-
-# Output gerado
-output/
-
 # OS
 .DS_Store
 Thumbs.db

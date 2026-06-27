@@ -29,7 +29,7 @@ modelo_arvore <- espec_arvore %>%
 # 3.3 Visualizar a árvore
 arvore_nativa <- extract_fit_engine(modelo_arvore)
 
-png("output/random_forest_stump.png", width = 900, height = 700, res = 120)
+png("output/02_random_forest/stump.png", width = 900, height = 700, res = 120)
 rpart.plot(
   arvore_nativa,
   type          = 2,
@@ -71,7 +71,7 @@ arvore_profunda <- extract_fit_engine(modelo_profundo)
 cat("Nós na árvore rasa:   ", nrow(modelo_arvore  %>% extract_fit_engine() %>% .$frame), "\n")
 cat("Nós na árvore profunda:", nrow(arvore_profunda$frame), "\n")
 
-png("output/random_forest_arvore_profunda.png", width = 4000, height = 2800, res = 120)
+png("output/02_random_forest/arvore_profunda.png", width = 4000, height = 2800, res = 120)
 rpart.plot(
   arvore_profunda,
   type          = 2,
@@ -82,7 +82,7 @@ rpart.plot(
   roundint      = FALSE,
   ycompress     = TRUE,
   yesno         = 0,
-  cex           = 2   # fonte maior — aumentamos a imagem para compensar
+  cex           = 2
 )
 dev.off()
 
@@ -151,7 +151,7 @@ p_roc_rf <- roc_df_rf %>%
   theme_minimal(base_size = 12) +
   theme(plot.caption = element_text(color = "gray40", size = 9))
 print(p_roc_rf)
-ggsave("output/random_forest_roc.png", plot = p_roc_rf,
+ggsave("output/02_random_forest/roc.png", plot = p_roc_rf,
        width = 7, height = 6, dpi = 150, bg = "white")
 
 # 4.4 Importância das variáveis
@@ -159,11 +159,12 @@ p_vip_rf <- vip(modelo_rf,
   geom       = "col",
   aesthetics = list(fill = "#2166ac", color = "white")
 ) +
+  scale_y_discrete(labels = c("raca" = "Raça/Etnia")) +
   labs(title = "Importância de cada preditor",
        y = "Redução média de impureza de Gini (média sobre 500 árvores)", x = NULL) +
   theme_minimal(base_size = 13)
 print(p_vip_rf)
-ggsave("output/random_forest_importancia.png", plot = p_vip_rf,
+ggsave("output/02_random_forest/importancia.png", plot = p_vip_rf,
        width = 7, height = 5, dpi = 150, bg = "white")
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -206,7 +207,7 @@ p_oob <- ggplot(oob_df, aes(x = n_arvores, y = erro_oob)) +
   theme_minimal(base_size = 13) +
   theme(plot.caption = element_text(color = "gray40", size = 9))
 print(p_oob)
-ggsave("output/random_forest_oob_convergencia.png", plot = p_oob,
+ggsave("output/02_random_forest/oob_convergencia.png", plot = p_oob,
        width = 8, height = 5, dpi = 150, bg = "white")
 
 # ══════════════════════════════════════════════════════════════════════════════

@@ -22,7 +22,7 @@
 
 receita <- recipe(infarto ~ ., data = dados_treino) %>%
   step_relevel(diabetes, ref_level = "Não") %>%
-  step_relevel(fumante,  ref_level = "Não fuma") %>%
+  step_relevel(fumante,  ref_level = "Não/Às vezes") %>%
   step_dummy(all_nominal_predictors(), one_hot = FALSE) %>%
   step_normalize(all_numeric_predictors())
 
@@ -91,13 +91,11 @@ legenda <- c(
   # ── diabetes ────────────────────────────────
   "diabetes_Sim"           = "Diabetes\n(sim)",
   "diabetes_Não"           = "Diabetes\n(não)",
-  "diabetes_Limítrofe"     = "Diabetes\n(limítrofe)",
-  "diabetes_Yes"           = "Diabetes\n(sim)",
-  "diabetes_No"            = "Diabetes\n(não)",
-  "diabetes_Borderline"    = "Diabetes\n(limítrofe)",
   # ── fumante (SMQ040: status atual) ────────────────────
   "fumante_Todo dia"       = "Fumante\n(todo dia)",
-  "fumante_Às vezes"       = "Fumante\n(às vezes)",
+  # ── raça/etnia ──────────────────────────────
+  "raca_Branco"            = "Raça\n(branco)",
+  "raca_Demais"            = "Raça\n(demais)",
   # ── sedentarismo ────────────────────────────
   "sedentarismo"           = "Sedentarismo\n(min/dia)"
 )
@@ -146,7 +144,7 @@ p_net <- as.ggplot(function() {
     col.sub = "gray40"
   )
 })
-ggsave("output/neural_network_estrutura.png", plot = p_net,
+ggsave("output/04_neural_network/estrutura.png", plot = p_net,
        width = 12, height = 7, dpi = 150, bg = "white")
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -176,7 +174,7 @@ ggsave("output/neural_network_estrutura.png", plot = p_net,
 x_vals   <- seq(-6, 6, by = 0.05)
 sig_vals <- 1 / (1 + exp(-x_vals))
 
-png("output/neural_network_sigmoide.png", width = 900, height = 700, res = 120)
+png("output/04_neural_network/sigmoide.png", width = 900, height = 700, res = 120)
 plot(
   x_vals, sig_vals,
   type = "l", lwd  = 2.5, col  = "#2166ac",
@@ -243,7 +241,7 @@ p_olden <- ggplot(imp_df,
   theme_minimal(base_size = 12) +
   theme(plot.caption = element_text(color = "gray40", size = 9))
 print(p_olden)
-ggsave("output/neural_network_importancia.png", plot = p_olden, width = 8, height = 5, dpi = 150, bg = "white")
+ggsave("output/04_neural_network/importancia.png", plot = p_olden, width = 8, height = 5, dpi = 150, bg = "white")
 
 # ══════════════════════════════════════════════════════════════════════════════
 # 10. CURVA ROC + AUC
@@ -307,7 +305,7 @@ p_roc <- roc_df %>%
   theme_minimal(base_size = 12) +
   theme(plot.caption = element_text(color = "gray40", size = 9))
 print(p_roc)
-ggsave("output/neural_network_roc.png", plot = p_roc, width = 7, height = 6, dpi = 150, bg = "transparent")
+ggsave("output/04_neural_network/roc.png", plot = p_roc, width = 7, height = 6, dpi = 150, bg = "transparent")
 
 # ══════════════════════════════════════════════════════════════════════════════
 # 11. COMPARAÇÃO DE PROFUNDIDADE: 1 vs 2 CAMADAS OCULTAS
@@ -387,7 +385,7 @@ p_comp <- ggplot(roc_comparacao,
     plot.caption      = element_text(color = "gray40", size = 9)
   )
 print(p_comp)
-ggsave("output/neural_network_comparacao_camadas.png", plot = p_comp,
+ggsave("output/04_neural_network/comparacao_camadas.png", plot = p_comp,
        width = 8, height = 6, dpi = 150, bg = "white")
 
 # ══════════════════════════════════════════════════════════════════════════════

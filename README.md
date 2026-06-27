@@ -6,13 +6,13 @@ Material de aula com pipeline completo de machine learning aplicado a dados popu
 
 ## Objetivo
 
-Prever a ocorrência de **infarto do miocárdio** (e, como contraste, o **colesterol total**) a partir de variáveis sociodemográficas e clínicas disponíveis no NHANES, comparando cinco abordagens de modelagem de forma didática e progressiva.
+Prever a ocorrência de **infarto do miocárdio** a partir de variáveis sociodemográficas e clínicas, comparando cinco abordagens de modelagem de forma didática e progressiva.
 
 ---
 
 ## Dados
 
-Os dados são baixados automaticamente pelo pacote [`nhanesA`](https://cran.r-project.org/package=nhanesA) (NHANES, ciclo L — 2021–2023) e salvos localmente em `data/` para reutilização.
+Os dados são baixados automaticamente pelo pacote [`nhanesA`](https://cran.r-project.org/package=nhanesA) (NHANES, ciclo L — 2021–2023) e salvos localmente em `data/`.
 
 | Tabela NHANES | Conteúdo |
 |---|---|
@@ -25,7 +25,9 @@ Os dados são baixados automaticamente pelo pacote [`nhanesA`](https://cran.r-pr
 | `MCQ_L` | Infarto do miocárdio autorrelatado (**desfecho**) |
 | `PAQ_L` | Atividade física |
 
-> A pasta `data/` está no `.gitignore` — os dados são recriados localmente ao rodar `00_setup.R`.
+### Tabela descritiva dos dados
+
+![Tabela descritiva](output/00_setup/tabela_descritiva.png)
 
 ---
 
