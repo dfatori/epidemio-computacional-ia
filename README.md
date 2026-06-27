@@ -1,18 +1,18 @@
 # Epidemiologia Computacional e Inteligência Artificial
 
-Material de aula com pipeline completo de machine learning aplicado a dados populacionais reais — da limpeza dos dados à comparação de modelos preditivos — usando o ciclo **NHANES 2021–2023** como base.
+Material de aula com análises didáticas de aprendizado de máquina aplicadas aos dados epidemiológicos do estudo **NHANES (anos 2021–2023)**.
 
 ---
 
 ## Objetivo
 
-Desenvolver um modelo preditivo de **hipertensão arterial sistêmica** (pressão sistólica ≥ 140 mmHg) a partir de variáveis sociodemográficas e clínicas.
+Desenvolver um modelo preditivo de **hipertensão arterial sistêmica** (pressão sistólica ≥ 140 mmHg) a partir de variáveis sociodemográficas e clínicas utilizando dados do estudo epidemiológicos NHANES de 2021-2023.
 
 ---
 
 ## Dados
 
-Os dados são baixados automaticamente pelo pacote [`nhanesA`](https://cran.r-project.org/package=nhanesA) (NHANES, ciclo L — 2021–2023) e salvos localmente em `data/`.
+Dados baixados pelo pacote [`nhanesA`](https://cran.r-project.org/package=nhanesA) (NHANES, ciclo L — 2021–2023) e salvos localmente em `data/`.
 
 | Tabela NHANES | Conteúdo |
 |---|---|
@@ -26,7 +26,7 @@ Os dados são baixados automaticamente pelo pacote [`nhanesA`](https://cran.r-pr
 
 ### Tabela descritiva dos dados
 
-<img src="output/00_setup/tabela_descritiva.png" width="500"/>
+<img src="output/00_setup/tabela_descritiva.png" width="400"/>
 
 ---
 
@@ -50,14 +50,6 @@ Os dados são baixados automaticamente pelo pacote [`nhanesA`](https://cran.r-pr
 
 ## Pipeline
 
-Execute o pipeline completo a partir da raiz do projeto:
-
-```r
-source("scripts/workflow.R")
-```
-
-Ou rode cada etapa individualmente na ordem abaixo:
-
 | # | Script | Modelo | Desfecho |
 |---|---|---|---|
 | 00 | `00_setup.R` | — | Download e limpeza dos dados |
@@ -67,31 +59,20 @@ Ou rode cada etapa individualmente na ordem abaixo:
 | 04 | `04_neural_network.R` | Rede Neural MLP (`brulee`) | HAS (PAS ≥ 140 mmHg) |
 | 05 | `05_exercicio.R` | — | Expande para ~20 preditores; rode 01–04 após |
 
+Pipeline completo a partir da raiz do projeto:
+
+```r
+source("scripts/workflow.R")
+```
+
 ---
 
 ## Conteúdo Didático por Script
 
 - **`01` — Regressão Logística**: função logística, log-odds, odds ratio, curva ROC.
 - **`02` — Árvore + Random Forest**: critério de Gini, overfitting (árvore rasa vs. profunda), importância de variáveis por redução de impureza (OOB).
-- **`03` — Gradient Boosting**: conceito de *aprendiz fraco* (stump), learning rate, detecção do número ótimo de árvores via CV.
+- **`03` — Gradient Boosting**: conceito de *aprendiz fraco*, taxa de aprendizado rate, detecção do número ótimo de árvores via validação cruzada.
 - **`04` — Rede Neural**: pré-processamento com `step_dummy` + `step_normalize`, arquitetura MLP, visualização de pesos.
 - **`05` — Exercício**: baixa 9 tabelas adicionais (HbA1c, triglicerídeos, HDL, PCR, ácido úrico, creatinina, álcool, sono, PHQ-9) e reconstrói `dados`/`dados_treino`/`dados_teste` com ~20 preditores. Rode os scripts 01–04 novamente e compare os AUCs.
 
-### Extras (`leftovers/`)
-- **`dag.R`**: construção e visualização do DAG (directed acyclic graph) para o efeito causal do tabagismo sobre infarto.
-- **`causal_inference.R`**: demonstração dos erros de supercontrole, ajuste correto pelo DAG e estimação por *Causal Forest* (`grf`).
-
 ---
-
-## Dependências
-
-```r
-# Instala automaticamente via 00_setup.R
-nhanesA, dplyr, forcats, gtsummary, tidymodels,
-vip, rpart.plot, gbm, NeuralNetTools, ggplotify, brulee
-```
-
-> Para a rede neural (`brulee`), pode ser necessário instalar o backend PyTorch:
-> ```r
-> torch::install_torch()
-> ```
