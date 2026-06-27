@@ -127,7 +127,7 @@ p_net <- as.ggplot(function() {
   plotnet(
     nn_nativo,
     x_names    = rotulos_entrada,  # rótulos PT-BR para os nós de entrada
-    y_names    = "HAS",        # rótulo PT-BR para o nó de saída
+    y_names    = "Hipertensão",        # rótulo PT-BR para o nó de saída
     circle_cex = 5,                # tamanho dos nós
     cex_val    = 0.85,             # tamanho do texto dos rótulos
     bord_col   = "black",          # borda dos nós
@@ -146,7 +146,7 @@ p_net <- as.ggplot(function() {
     col.sub = "gray40"
   )
 })
-ggsave("output/04_neural_network/estrutura.png", plot = p_net,
+ggsave("output/04_neural_network/mlp_estrutura.png", plot = p_net,
        width = 12, height = 7, dpi = 150, bg = "white")
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -176,7 +176,7 @@ ggsave("output/04_neural_network/estrutura.png", plot = p_net,
 x_vals   <- seq(-6, 6, by = 0.05)
 sig_vals <- 1 / (1 + exp(-x_vals))
 
-png("output/04_neural_network/sigmoide.png", width = 900, height = 700, res = 120)
+png("output/04_neural_network/conceito_sigmoide.png", width = 900, height = 700, res = 120)
 plot(
   x_vals, sig_vals,
   type = "l", lwd  = 2.5, col  = "#2166ac",
@@ -231,14 +231,14 @@ p_olden <- ggplot(imp_df,
   scale_fill_manual(values = c("TRUE" = "#2166ac", "FALSE" = "#d73027")) +
   coord_flip() +
   labs(
-    title   = "Importância das Variáveis — Método Olden",
+    title   = "Importância das Variáveis",
     x       = NULL,
-    y       = "Importância relativa (preserva sinal)"
+    y       = "Importância relativa"
     ) +
   theme_minimal(base_size = 12) +
   theme(plot.caption = element_text(color = "gray40", size = 9))
 print(p_olden)
-ggsave("output/04_neural_network/importancia.png", plot = p_olden, width = 8, height = 5, dpi = 150, bg = "white")
+ggsave("output/04_neural_network/mlp_importancia.png", plot = p_olden, width = 8, height = 5, dpi = 150, bg = "white")
 
 # ══════════════════════════════════════════════════════════════════════════════
 # 10. CURVA ROC + AUC
@@ -290,19 +290,19 @@ p_roc <- roc_df %>%
     hjust = 0, size = 3.2, color = "#d73027"
   ) +
   labs(
-    title   = "Curva ROC — Rede Neural (NHANES 2021-2023)",
+    title   = "Curva ROC: Rede Neural",
     x       = "1 − Especificidade  (taxa de falsos positivos)",
     y       = "Sensibilidade  (taxa de verdadeiros positivos)",
     caption = paste0(
       "AUC = ", round(auc_nn$.estimate, 3),
-      "  |  Diagonal pontilhada = modelo aleatório (AUC = 0,5)",
-      "  |  Ponto vermelho = limiar ótimo (Youden)"
+      " | Diagonal pontilhada = modelo aleatório (AUC = 0,5)",
+      " | Ponto vermelho = limiar ótimo (Youden)"
     )
   ) +
   theme_minimal(base_size = 12) +
   theme(plot.caption = element_text(color = "gray40", size = 9))
 print(p_roc)
-ggsave("output/04_neural_network/roc.png", plot = p_roc, width = 7, height = 6, dpi = 150, bg = "transparent")
+ggsave("output/04_neural_network/mlp_roc.png", plot = p_roc, width = 7, height = 6, dpi = 150)
 
 # ══════════════════════════════════════════════════════════════════════════════
 # 11. COMPARAÇÃO DE PROFUNDIDADE: 1 vs 2 CAMADAS OCULTAS
@@ -329,11 +329,13 @@ espec_2c <- mlp(hidden_units = c(4, 4), penalty = 0.01, epochs = 300) %>%
 # ── Treinar ────────────────────────────────────────────────────────────────────
 set.seed(42)
 modelo_1c <- workflow() %>%
-  add_recipe(receita) %>% add_model(espec_1c) %>% fit(data = dados_treino)
+  add_recipe(receita) %>% add_model(espec_1c) %>% 
+  fit(data = dados_treino)
 
 set.seed(42)
 modelo_2c <- workflow() %>%
-  add_recipe(receita) %>% add_model(espec_2c) %>% fit(data = dados_treino)
+  add_recipe(receita) %>% add_model(espec_2c) %>% 
+  fit(data = dados_treino)
 
 # ── AUC de cada arquitetura ───────────────────────────────────────────────────
 get_probs <- function(modelo, dados) {
@@ -369,7 +371,7 @@ p_comp <- ggplot(roc_comparacao,
   geom_abline(slope = 1, intercept = 0, linetype = "dashed", color = "gray60") +
   scale_color_manual(values = c("#2166ac", "#d73027")) +
   labs(
-    title   = "1 vs 2 Camadas Ocultas — Curvas ROC (NHANES 2021-2023)",
+    title   = "1 vs 2 Camadas Ocultas: Curvas ROC",
     x       = "1 \u2212 Especificidade  (taxa de falsos positivos)",
     y       = "Sensibilidade  (taxa de verdadeiros positivos)",
     color   = NULL,
@@ -382,7 +384,7 @@ p_comp <- ggplot(roc_comparacao,
     plot.caption      = element_text(color = "gray40", size = 9)
   )
 print(p_comp)
-ggsave("output/04_neural_network/comparacao_camadas.png", plot = p_comp,
+ggsave("output/04_neural_network/mlp_comparacao_camadas.png", plot = p_comp,
        width = 8, height = 6, dpi = 150, bg = "white")
 
 # ══════════════════════════════════════════════════════════════════════════════

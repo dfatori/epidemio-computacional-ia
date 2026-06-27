@@ -6,7 +6,7 @@ Material de aula com pipeline completo de machine learning aplicado a dados popu
 
 ## Objetivo
 
-Prever a ocorrência de **hipertensão arterial sistêmica (HAS)** — definida como PAS ≥ 140 mmHg — a partir de variáveis sociodemográficas e clínicas, comparando cinco abordagens de modelagem de forma didática e progressiva.
+Desenvolver um modelo preditivo de **hipertensão arterial sistêmica** (pressão sistólica ≥ 140 mmHg) a partir de variáveis sociodemográficas e clínicas.
 
 ---
 
@@ -26,7 +26,7 @@ Os dados são baixados automaticamente pelo pacote [`nhanesA`](https://cran.r-pr
 
 ### Tabela descritiva dos dados
 
-![Tabela descritiva](output/00_setup/tabela_descritiva.png)
+<img src="output/00_setup/tabela_descritiva.png" width="500"/>
 
 ---
 
@@ -35,19 +35,15 @@ Os dados são baixados automaticamente pelo pacote [`nhanesA`](https://cran.r-pr
 ```
 .
 ├── scripts/
-│   ├── workflow.R                  # Ponto de entrada: executa todo o pipeline
+│   ├── workflow.R                  # Executa todo o pipeline
 │   ├── 00_setup.R                  # Download, limpeza e preparo dos dados
 │   ├── 01_logistic_regression.R    # Regressão Logística
 │   ├── 02_random_forest.R          # Árvore de Decisão + Random Forest
 │   ├── 03_gradient_boosting.R      # Gradient Boosting (gbm / XGBoost)
 │   ├── 04_neural_network.R         # Rede Neural (MLP via brulee)
 │   ├── 05_exercicio.R              # Exercício: banco ampliado (~20 preditores)
-│   └── leftovers/
-│       ├── dag.R                   # Visualização do DAG causal
-│       ├── causal_inference.R      # Inferência causal: supercontrole vs DAG vs Causal Forest
-│       └── leftover.r              # Trechos experimentais
-├── data/                           # Dados NHANES em cache (.rds) — ignorado pelo git
-└── output/                         # Tabelas e gráficos gerados — ignorado pelo git
+├── data/                           # Dados NHANES em cache (.rds)
+└── output/                         # Tabelas e gráficos
 ```
 
 ---

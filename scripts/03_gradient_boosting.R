@@ -37,7 +37,7 @@ stump <- rpart::rpart(
   data    = dados_treino,
   control = rpart::rpart.control(maxdepth = 1, minsplit = 1, minbucket = 1, cp = -1)
 )
-png("output/03_gradient_boosting/stump.png", width = 800, height = 600, res = 120)
+png("output/03_gradient_boosting/gradient_boosting_stump.png", width = 800, height = 600, res = 120)
 rpart.plot(
   stump,
   type          = 2,
@@ -89,7 +89,7 @@ modelo_gbm <- gbm(
 
 # gbm.perf() cria o gráfico internamente (base R), não retorna objeto ggplot.
 # Usamos png()/dev.off() para capturar o gráfico antes de ele ser exibido.
-png("output/03_gradient_boosting/curva_aprendizado.png", width = 900, height = 700, res = 120)
+png("output/03_gradient_boosting/gradient_boosting_curva_aprendizado.png", width = 900, height = 700, res = 120)
 n_otimo <- gbm.perf(
   modelo_gbm,
   method  = "cv",
@@ -149,10 +149,10 @@ p_evol <- ggplot(evol_df, aes(x = prob, fill = has_pas, color = has_pas)) +
                                 "Não" = "#2166ac", "No"  = "#2166ac")) +
   labs(
     title    = "Evolução das Predições",
-    subtitle = "Distribuição de P(HAS) com k árvores acumuladas",
-    x        = "P(HAS = Sim)",
+    subtitle = "Distribuição de P(Hipertensão) com k árvores acumuladas",
+    x        = "P(Hipertensão = Sim)",
     y        = "Densidade",
-    fill     = "HAS real", color = "HAS real",
+    fill     = "Hipertensão real", color = "Hipertensão real",
     caption  = ""
   ) +
   theme_minimal(base_size = 12) +
@@ -162,24 +162,24 @@ p_evol <- ggplot(evol_df, aes(x = prob, fill = has_pas, color = has_pas)) +
     strip.text       = element_text(face = "bold")
   )
 print(p_evol)
-ggsave("output/03_gradient_boosting/evolucao_predicoes.png", plot = p_evol,
+ggsave("output/03_gradient_boosting/gradient_boosting_evolucao_predicoes.png", plot = p_evol,
        width = 9, height = 7, dpi = 150, bg = "white")
 
 # ══════════════════════════════════════════════════════════════════════════════
-# 4. EFEITO DO LEARNING RATE (shrinkage)
+# 4. EFEITO DA TAXA DE APRENDIZADO
 # ══════════════════════════════════════════════════════════════════════════════
 # Learning rate controla o quanto cada árvore contribui para a predição final.
-# • Rate alto  (ex: 0.3): aprende rápido, precisa de menos árvores, mas mais grosseiro
-# • Rate baixo (ex: 0.01): aprende devagar, precisa de muito mais árvores, mas mais fino
+# • Taxa alta  (ex: 0.3): aprende rápido, precisa de menos árvores, mas mais grosseiro
+# • Taxa baixa (ex: 0.01): aprende devagar, precisa de muito mais árvores, mas mais fino
 #
-# Regra prática: use rate baixo + muitas árvores para melhor performance.
-# Para didática, comparamos 3 rates com o mesmo n.trees:
+# Regra prática: use taxa baixa + muitas árvores para melhor performance.
+# Para didática, comparamos 3 taxas com o mesmo n.trees:
 
 rates     <- c(0.3, 0.05, 0.01)
 cores_lr  <- c("#d73027", "#2166ac", "#4dac26")
-rotulos   <- c("Rate alto (0.30)", "Rate médio (0.05)", "Rate baixo (0.01)")
+rotulos   <- c("Taxa alta (0.30)", "Taxa média (0.05)", "Taxa baixa (0.01)")
 
-# Coleta erros de treino para cada rate e monta um data.frame para ggplot
+# Coleta erros de cross-validation para cada rate e monta um data.frame para ggplot
 erros_lr <- purrr::map_dfr(seq_along(rates), function(i) {
   set.seed(42)
   m_tmp <- gbm(
@@ -190,11 +190,12 @@ erros_lr <- purrr::map_dfr(seq_along(rates), function(i) {
     interaction.depth = 1,
     shrinkage         = rates[i],
     bag.fraction      = 0.8,
+    cv.folds          = 5,
     verbose           = FALSE
   )
   data.frame(
-    arvore  = seq_along(m_tmp$train.error),
-    erro    = m_tmp$train.error,
+    arvore  = seq_along(m_tmp$cv.error),
+    erro    = m_tmp$cv.error,
     rotulo  = rotulos[i]
   )
 })
@@ -206,13 +207,13 @@ p_lr <- ggplot(erros_lr, aes(x = arvore, y = erro, color = rotulo)) +
   labs(
     title  = "Efeito da taxa de aprendizado no gradient boosting",
     x      = "Número de árvores",
-    y      = "Erro (log-loss) no treino",
+    y      = "Erro (log-loss) — validação cruzada (5-fold)",
     color  = NULL
   ) +
   theme_minimal(base_size = 13) +
   theme(legend.position = "top")
 print(p_lr)
-ggsave("output/03_gradient_boosting/learning_rate.png", 
+ggsave("output/03_gradient_boosting/gradient_boosting_learning_rate.png",
           plot = p_lr, 
           width = 8, 
           height = 6, 
@@ -301,20 +302,26 @@ p_roc <- roc_df %>%
     label = sprintf("Limiar ótimo\n(Youden = %.2f)", max(roc_df$sensitivity + roc_df$specificity - 1, na.rm = TRUE)),
     hjust = 0, size = 3.2, color = "#d73027"
   ) +
+  annotate(
+    "text",
+    x = 0.72, y = 0.18,
+    label = paste0("AUC = ", round(auc_gb$.estimate, 3)),
+    size = 4.5, fontface = "bold", color = "#2166ac", hjust = 0
+  ) +
   labs(
-    title   = "Curva ROC — Gradient Boosting / XGBoost (NHANES 2021-2023)",
-    x       = "1 - Especificidade  (taxa de falsos positivos)",
-    y       = "Sensibilidade  (taxa de verdadeiros positivos)",
+    title   = "Curva ROC: XGBoost",
+    x       = "1 - Especificidade (taxa de falsos positivos)",
+    y       = "Sensibilidade (taxa de verdadeiros positivos)",
     caption = paste0(
       "AUC = ", round(auc_gb$.estimate, 3),
-      "  |  Diagonal pontilhada = modelo aleatório (AUC = 0,5)",
-      "  |  Ponto vermelho = limiar ótimo (Youden)"
+      " | Diagonal pontilhada = modelo aleatório (AUC = 0,5)",
+      " | Ponto vermelho = limiar ótimo (Youden)"
     )
   ) +
   theme_minimal(base_size = 12) +
   theme(plot.caption = element_text(color = "gray40", size = 9))
 print(p_roc)
-ggsave("output/03_gradient_boosting/roc.png", plot = p_roc, width = 7, height = 6, dpi = 150, bg = "white")
+ggsave("output/03_gradient_boosting/xgboost_roc.png", plot = p_roc, width = 7, height = 6, dpi = 150, bg = "white")
 
 # ══════════════════════════════════════════════════════════════════════════════
 # 6. IMPORTÂNCIA DAS VARIÁVEIS
@@ -324,21 +331,32 @@ ggsave("output/03_gradient_boosting/roc.png", plot = p_roc, width = 7, height = 
 # acumulado ao longo de todas as árvores.
 # Variáveis escolhidas com mais frequência E com maior redução de erro ficam no topo.
 
-p_vip <- vip(
-  modelo_xgb,
-  num_features = 10,
-  geom         = "col",
-  aesthetics   = list(fill = "#2166ac", color = "white")
-) +
-  scale_y_discrete(labels = c("raca_Branco" = "Raça/Etnia")) +
+rotulos_xgb <- c(
+  "idade"                 = "Idade",
+  "whr"                   = "Razão cintura/estatura",
+  "renda"                 = "Renda",
+  "colesterol"            = "Colesterol",
+  "sedentarismo"          = "Sedentarismo (min/dia)",
+  "sexo_Feminino"         = "Sexo (feminino)",
+  "raca_Branco"           = "Raça (branco)",
+  "diabetes_Sim"          = "Diabetes (sim)",
+  "fumante_Ex.fumante"    = "Ex-fumante",
+  "fumante_Fumante.atual" = "Fumante atual"
+)
+
+imp_xgb <- vi(modelo_xgb) %>%
+  mutate(Variable = dplyr::recode(Variable, !!!rotulos_xgb))
+
+p_vip <- ggplot(imp_xgb, aes(x = Importance, y = reorder(Variable, Importance))) +
+  geom_col(fill = "#2166ac", color = "white") +
   labs(
-    title    = "Importância das Variáveis — Gradient Boosting (XGBoost)",
+    title    = "Importância das Variáveis: XGBoost",
     subtitle = "Ganho total acumulado em todas as árvores",
-    x        = NULL, y = "Importância"
+    x        = "Importância", y = NULL
   ) +
   theme_minimal(base_size = 13)
 print(p_vip)
-ggsave("output/03_gradient_boosting/importancia.png", plot = p_vip, width = 7, height = 5, dpi = 150, bg = "white")
+ggsave("output/03_gradient_boosting/xgboost_importancia.png", plot = p_vip, width = 7, height = 5, dpi = 150, bg = "white")
 
 # ══════════════════════════════════════════════════════════════════════════════
 # 7. COMPARAÇÃO COM REGRESSÃO LOGÍSTICA (baseline)

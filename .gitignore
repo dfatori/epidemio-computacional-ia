@@ -3,6 +3,7 @@
 .RData
 .Rproj.user/
 *.Rproj
+leftovers/
 
 # OS
 .DS_Store

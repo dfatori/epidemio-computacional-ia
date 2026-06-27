@@ -39,7 +39,7 @@ text(-5.5, 0.08, "Score muito\nnegativo\nP ≈ 0", cex = 0.8, col = "gray40")
 text( 4.5, 0.93, "Score muito\npositivo\nP ≈ 1", cex = 0.8, col = "gray40")
 mtext(expression(P == frac(1, 1 + e^{-(beta[0] + beta[1]*x[1] + ldots)})),
       side = 3, line = 0.2, cex = 0.9, col = "#2166ac")
-dev.copy(png, "output/01_logistic_regression/funcao_logistica.png", width = 900, height = 700, res = 120)
+dev.copy(png, "output/01_logistic_regression/conceito_funcao_logistica.png", width = 900, height = 700, res = 120)
 dev.off()
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -117,7 +117,7 @@ p_or <- ggplot(coefs, aes(x = OR, y = reorder(term, OR))) +
   theme_minimal(base_size = 13) +
   theme(legend.position = "top")
 print(p_or)
-ggsave("output/01_logistic_regression/odds_ratios.png", plot = p_or,
+ggsave("output/01_logistic_regression/logistic_odds_ratios.png", plot = p_or,
        width = 8, height = 6, dpi = 150, bg = "white")
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -175,7 +175,7 @@ p_roc <- roc_df %>%
   theme_minimal(base_size = 12) +
   theme(plot.caption = element_text(color = "gray40", size = 9))
 print(p_roc)
-ggsave("output/01_logistic_regression/roc.png", plot = p_roc,
+ggsave("output/01_logistic_regression/logistic_roc.png", plot = p_roc,
        width = 7, height = 6, dpi = 150, bg = "white")
 
 # ══════════════════════════════════════════════════════════════════════════════

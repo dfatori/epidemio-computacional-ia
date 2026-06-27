@@ -23,7 +23,7 @@ arvore_nativa <- rpart::rpart(
     cp = -1)       # desativa o critério de parada por ganho mínimo
 )
 
-png("output/02_random_forest/stump.png", width = 900, height = 700, res = 120)
+png("output/02_random_forest/decision_tree_rasa.png", width = 900, height = 700, res = 120)
 rpart.plot(
   arvore_nativa,
   type          = 2,
@@ -57,7 +57,7 @@ arvore_profunda <- rpart::rpart(
 cat("Nós na árvore rasa:   ", nrow(arvore_nativa$frame), "\n")
 cat("Nós na árvore profunda:", nrow(arvore_profunda$frame), "\n")
 
-png("output/02_random_forest/arvore_profunda.png", width = 2200, height = 1400, res = 120)
+png("output/02_random_forest/decision_tree_profunda.png", width = 2800, height = 1800, res = 120)
 rpart.plot(
   arvore_profunda,
   type          = 2,
@@ -68,7 +68,7 @@ rpart.plot(
   roundint      = FALSE,
   ycompress     = FALSE,
   yesno         = 0,
-  cex           = 0.6
+  cex           = 1.4
 )
 dev.off()
 
@@ -135,10 +135,16 @@ p_roc_rf <- roc_df_rf %>%
     label = sprintf("Limiar ótimo\n(Youden = %.2f)", max(roc_df_rf$sensitivity + roc_df_rf$specificity - 1, na.rm = TRUE)),
     hjust = 0, size = 3.2, color = "#d73027"
   ) +
+  annotate(
+    "text",
+    x = 0.72, y = 0.18,
+    label = paste0("AUC = ", round(auc_rf$.estimate, 3)),
+    size = 4.5, fontface = "bold", color = "#2166ac", hjust = 0
+  ) +
   labs(
-    title   = "Curva ROC",
-    x       = "1 - Especificidade  (taxa de falsos positivos)",
-    y       = "Sensibilidade  (taxa de verdadeiros positivos)",
+    title   = "Curva ROC: Random Forest",
+    x       = "1 - Especificidade (taxa de falsos positivos)",
+    y       = "Sensibilidade (taxa de verdadeiros positivos)",
     caption = paste0(
       "AUC = ", round(auc_rf$.estimate, 3),
       " | Diagonal pontilhada = modelo aleatório (AUC = 0,5)",
@@ -148,7 +154,7 @@ p_roc_rf <- roc_df_rf %>%
   theme_minimal(base_size = 12) +
   theme(plot.caption = element_text(color = "gray40", size = 9))
 print(p_roc_rf)
-ggsave("output/02_random_forest/roc.png", plot = p_roc_rf,
+ggsave("output/02_random_forest/random_forest_roc.png", plot = p_roc_rf,
        width = 7, height = 6, dpi = 150, bg = "white")
 
 # 4.4 Importância das variáveis
@@ -173,7 +179,7 @@ p_vip_rf <- ggplot(imp_rf, aes(x = Importance, y = reorder(Variable, Importance)
        x = "Redução média de impureza de Gini (média sobre 500 árvores)", y = NULL) +
   theme_minimal(base_size = 13)
 print(p_vip_rf)
-ggsave("output/02_random_forest/importancia.png", plot = p_vip_rf,
+ggsave("output/02_random_forest/random_forest_importancia.png", plot = p_vip_rf,
        width = 7, height = 5, dpi = 150, bg = "white")
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -215,7 +221,7 @@ p_oob <- ggplot(oob_df, aes(x = n_arvores, y = erro_oob)) +
   theme_minimal(base_size = 13) +
   theme(plot.caption = element_text(color = "gray40", size = 9))
 print(p_oob)
-ggsave("output/02_random_forest/oob_convergencia.png", plot = p_oob,
+ggsave("output/02_random_forest/random_forest_oob_convergencia.png", plot = p_oob,
        width = 8, height = 5, dpi = 150, bg = "white")
 
 # ══════════════════════════════════════════════════════════════════════════════

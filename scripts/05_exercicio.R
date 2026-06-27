@@ -14,6 +14,7 @@
 #   2. Rode este script → rode 01–04 novamente → compare os AUCs
 #   3. Quais variáveis apareceram como mais importantes?
 #   4. O ganho de AUC justifica a complexidade extra?
+#   5. Qual modelo performa melhor? Segundo quais critérios?
 # ══════════════════════════════════════════════════════════════════════════════
 
 # ── 1. Baixar tabelas adicionais ──────────────────────────────────────────────
