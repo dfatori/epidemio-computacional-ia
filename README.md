@@ -26,7 +26,7 @@ Dados baixados pelo pacote [`nhanesA`](https://cran.r-project.org/package=nhanes
 
 ### Tabela descritiva dos dados
 
-<img src="output/00_setup/tabela_descritiva.png" width="400"/>
+<img src="output/00_setup/tabela_descritiva.png" width="300"/>
 
 ---
 
