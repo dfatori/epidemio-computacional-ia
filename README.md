@@ -1,1 +1,1 @@
-# epidemio-computacional-ia
+# Análises para aula de Epidemiologia Computacional e Inteligência Artificial
