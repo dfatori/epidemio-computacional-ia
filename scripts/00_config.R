@@ -13,20 +13,20 @@ pkg_load("nhanesA")
 pkg_load("dplyr")
 pkg_load("forcats")
 pkg_load("gtsummary")
-theme_gtsummary_language("pt", decimal.mark = ",", big.mark = ".")  # tabelas em PT-BR
+theme_gtsummary_language("pt", decimal.mark = ",", big.mark = ".")
 pkg_load("tidymodels")
 pkg_load("vip")
 pkg_load("rpart.plot")
 pkg_load("gbm")
+pkg_load("xgboost")
 pkg_load("NeuralNetTools")
 pkg_load("ggplotify")
-pkg_load("brulee")   # usado no script 04 para a comparação 1 vs 2 camadas ocultas
-pkg_load("webshot2")
+pkg_load("brulee")
+pkg_load("flextable")
 
 # O pacote brulee precisa do backend torch: bibliotecas nativas que não
 # vem com R. Importante: sem torch, o script 04 falha.
-# Abaixo, instala automaticamente se estiver faltando (download uma única vez;
-# a primeira execução pode demorar alguns minutos).
+# Abaixo, instala automaticamente se estiver faltando
 if (requireNamespace("torch", quietly = TRUE) && !torch::torch_is_installed()) {
   message("Instalando o backend torch (necessário para o script 04, uma vez só)...")
   torch::install_torch()
@@ -195,9 +195,19 @@ tabela_desc %>%
   as_gt() %>% 
   gt::gtsave("output/00_config/tabela_descritiva.html")
 
-tabela_desc %>% 
-  as_gt() %>% 
-  gt::gtsave("output/00_config/tabela_descritiva.png")
+# PNG gerado nativamente (flextable + device png do R), sem depender de
+# navegador — o gt::gtsave em PNG exigiria Chrome via webshot2/chromote.
+ft_desc <- tabela_desc %>% 
+  as_flex_table() %>% 
+  flextable::autofit()
+
+dm <- dim(ft_desc)  # dimensões em polegadas: o PNG sai no tamanho exato
+
+png("output/00_config/tabela_descritiva.png",
+    width = sum(dm$widths) * 300, height = sum(dm$heights) * 300, res = 300)
+grid::grid.newpage()
+grid::grid.draw(flextable::gen_grob(ft_desc, fit = "auto"))
+dev.off()
 
 # ── 8. Preparar dados para modelagem ──────────────────────────────────────────
 # Preditores usados em TODOS os scripts de modelagem (01 a 04).

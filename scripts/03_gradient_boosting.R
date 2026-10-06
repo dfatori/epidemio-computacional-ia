@@ -110,8 +110,8 @@ p_curva <- ggplot(curva_long, aes(x = arvores, y = erro, color = serie)) +
   ) +
   scale_color_manual(values = c("Treino" = "black", "Validação cruzada" = "#4dac26")) +
   labs(
-    title    = "Curva de Aprendizado — Gradient Boosting",
-    subtitle = paste0("Taxa de aprendizado: 0.05  |  Profundidade: 1 (stumps)  |  ",
+    title    = "Curva de Aprendizado: Gradient Boosting",
+    subtitle = paste0("Taxa de aprendizado: 0.05 | Profundidade: 1 (stumps) |  ",
                       "n ótimo de árvores por validação cruzada: ", n_otimo),
     x        = "Número de árvores (iterações)",
     y        = "Desvio de Bernoulli (log-loss)",
@@ -214,9 +214,9 @@ p_lr <- ggplot(erros_lr, aes(x = arvore, y = erro, color = rotulo)) +
   geom_line(linewidth = 0.9) +
   scale_color_manual(values = setNames(cores_lr, rotulos)) +
   labs(
-    title  = "Efeito da taxa de aprendizado no gradient boosting",
+    title  = "Efeito da taxa de aprendizado",
     x      = "Número de árvores",
-    y      = "Erro (log-loss) — validação cruzada (5-fold)",
+    y      = "Erro (log-loss), validação cruzada (5-fold)",
     color  = NULL
   ) +
   theme_minimal(base_size = 13) +
@@ -354,7 +354,7 @@ p_vip <- ggplot(imp_xgb, aes(x = Importance, y = reorder(Variable, Importance)))
   geom_col(fill = "#2166ac", color = "white") +
   labs(
     title    = "Importância das Variáveis: XGBoost",
-    subtitle = "Ganho total acumulado em todas as árvores",
+    subtitle = "Proporção do ganho acumulado em todas as árvores",
     x        = "Importância", y = NULL
   ) +
   theme_minimal(base_size = 13)

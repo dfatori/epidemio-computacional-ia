@@ -155,9 +155,19 @@ tabela_desc_ampliada %>%
   as_gt() %>%
   gt::gtsave("output/exercicio/tabela_descritiva_ampliada.html")
 
-tabela_desc_ampliada %>%
-  as_gt() %>%
-  gt::gtsave("output/exercicio/tabela_descritiva_ampliada.png")
+# PNG gerado nativamente (flextable + device png do R), sem depender de
+# navegador — o gt::gtsave em PNG exigiria Chrome via webshot2/chromote.
+ft_ampliada <- tabela_desc_ampliada %>%
+  as_flex_table() %>%
+  flextable::autofit()
+
+dm <- dim(ft_ampliada)  # dimensões em polegadas: o PNG sai no tamanho exato
+
+png("output/exercicio/tabela_descritiva_ampliada.png",
+    width = sum(dm$widths) * 300, height = sum(dm$heights) * 300, res = 300)
+grid::grid.newpage()
+grid::grid.draw(flextable::gen_grob(ft_ampliada, fit = "auto"))
+dev.off()
 
 # ── 5. Preparar dados para modelagem (sobrescreve os objetos do 00_config.R) ──
 # ATENÇÃO: a partir daqui, dados/dados_treino/dados_teste contêm 22 preditores.
