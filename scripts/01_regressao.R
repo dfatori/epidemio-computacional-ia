@@ -1,10 +1,10 @@
 # ══════════════════════════════════════════════════════════════════════════════
 # NHANES 2021-2023 — Regressão Logística para Predição de HAS (baseline)
-# Rode setup.R antes para ter nhanes_cardio disponível
+# Rode 00_config.R antes (ele cria dados, dados_treino e dados_teste)
 # ══════════════════════════════════════════════════════════════════════════════
 
 # ── 1. Dados ─────────────────────────────────────────────────────────────────
-# dados, dados_treino e dados_teste preparados pelo 00_setup.R
+# dados, dados_treino e dados_teste preparados pelo 00_config.R
 
 # ══════════════════════════════════════════════════════════════════════════════
 # 2. CONCEITO CENTRAL: A FUNÇÃO LOGÍSTICA
@@ -23,6 +23,7 @@
 x_vals   <- seq(-6, 6, by = 0.05)
 log_vals <- 1 / (1 + exp(-x_vals))
 
+png("output/01_regressao/conceito_funcao_logistica.png", width = 900, height = 700, res = 120)
 plot(
   x_vals, log_vals,
   type = "l", lwd = 2.5, col = "#2166ac",
@@ -39,7 +40,6 @@ text(-5.5, 0.08, "Score muito\nnegativo\nP ≈ 0", cex = 0.8, col = "gray40")
 text( 4.5, 0.93, "Score muito\npositivo\nP ≈ 1", cex = 0.8, col = "gray40")
 mtext(expression(P == frac(1, 1 + e^{-(beta[0] + beta[1]*x[1] + ldots)})),
       side = 3, line = 0.2, cex = 0.9, col = "#2166ac")
-dev.copy(png, "output/01_logistic_regression/conceito_funcao_logistica.png", width = 900, height = 700, res = 120)
 dev.off()
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -75,6 +75,10 @@ modelo_lr <- wf_lr %>% fit(data = dados_treino)
 #   OR < 1 → reduz o risco
 #   OR = 1 → sem efeito
 #
+# ATENÇÃO: como aplicamos step_normalize(), os preditores contínuos foram
+# padronizados (média 0, dp 1). O OR de idade, colesterol etc. é, portanto,
+# por +1 DESVIO-PADRÃO — não por unidade original (ano, mg/dL).
+#
 # Intervalo de confiança: se o IC não cruza 1, o efeito é estatisticamente
 # significativo (equivalente ao p < 0.05 no modelo logístico).
 
@@ -95,6 +99,7 @@ coefs <- tidy(extract_fit_engine(modelo_lr), conf.int = TRUE) %>%
       "diabetes_Sim"          = "Diabetes (sim)",
       "fumante_Ex.fumante"    = "Ex-fumante",
       "fumante_Fumante.atual" = "Fumante atual"
+      # termos sem tradução aqui mantêm o nome bruto (acontece no exercicio.R)
     )
   )
 
@@ -103,7 +108,8 @@ print(coefs %>% select(term, OR, OR_low, OR_high, p.value))
 # Gráfico de forest plot dos Odds Ratios
 p_or <- ggplot(coefs, aes(x = OR, y = reorder(term, OR))) +
   geom_vline(xintercept = 1, linetype = "dashed", color = "gray50") +
-  geom_errorbarh(aes(xmin = OR_low, xmax = OR_high), height = 0.2, color = "#555555") +
+  geom_errorbar(aes(xmin = OR_low, xmax = OR_high), height = 0.2, color = "#555555",
+                orientation = "y") +
   geom_point(aes(color = OR > 1), size = 3) +
   scale_color_manual(values = c("TRUE" = "#d73027", "FALSE" = "#2166ac"),
                      labels = c("TRUE" = "Aumenta risco", "FALSE" = "Reduz risco")) +
@@ -117,28 +123,30 @@ p_or <- ggplot(coefs, aes(x = OR, y = reorder(term, OR))) +
   theme_minimal(base_size = 13) +
   theme(legend.position = "top")
 print(p_or)
-ggsave("output/01_logistic_regression/logistic_odds_ratios.png", plot = p_or,
+ggsave("output/01_regressao/logistic_odds_ratios.png", plot = p_or,
        width = 8, height = 6, dpi = 150, bg = "white")
 
 # ══════════════════════════════════════════════════════════════════════════════
 # 5. AVALIAÇÃO: CURVA ROC + AUC
 # ══════════════════════════════════════════════════════════════════════════════
 # Usamos ROC + AUC — mesma abordagem dos scripts seguintes, para comparação.
+# Este bloco de avaliação é IDÊNTICO nos scripts 01–04 (repetição proposital:
+# cada script é autocontido e a métrica comum permite comparar os modelos).
+# O evento positivo é has_pas = "Sim": como os níveis do fator são
+# c("Não", "Sim"), passamos event_level = "second" explicitamente.
 
 probs_teste <- predict(modelo_lr, dados_teste, type = "prob") %>%
   bind_cols(dados_teste %>% select(has_pas))
 
-col_evento <- paste0(".pred_", levels(dados_teste$has_pas)[1])
-
 probs_roc <- probs_teste %>%
-  rename(prob_evento = all_of(col_evento))
+  rename(prob_evento = .pred_Sim)   # probabilidade do evento: HAS = "Sim"
 
-auc_lr <- roc_auc(probs_roc, truth = has_pas, prob_evento)
+auc_lr <- roc_auc(probs_roc, truth = has_pas, prob_evento, event_level = "second")
 cat("AUC da Regressão Logística:", round(auc_lr$.estimate, 3), "\n")
 
 # Ponto ótimo: critério de Youden — maximiza sensibilidade + especificidade
 # J = sens + spec - 1  →  equivalente a minimizar a distância ao canto (0,1)
-roc_df <- roc_curve(probs_roc, truth = has_pas, prob_evento)
+roc_df <- roc_curve(probs_roc, truth = has_pas, prob_evento, event_level = "second")
 ponto_otimo <- roc_df %>%
   mutate(youden = sensitivity + specificity - 1) %>%
   slice_max(youden, n = 1)
@@ -175,7 +183,7 @@ p_roc <- roc_df %>%
   theme_minimal(base_size = 12) +
   theme(plot.caption = element_text(color = "gray40", size = 9))
 print(p_roc)
-ggsave("output/01_logistic_regression/logistic_roc.png", plot = p_roc,
+ggsave("output/01_regressao/logistic_roc.png", plot = p_roc,
        width = 7, height = 6, dpi = 150, bg = "white")
 
 # ══════════════════════════════════════════════════════════════════════════════

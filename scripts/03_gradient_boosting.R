@@ -1,11 +1,11 @@
 
 # ══════════════════════════════════════════════════════════════════════════════
 # NHANES 2021-2023 — Gradient Boosting para Predição de HAS (foco didático)
-# Rode setup.R antes para ter nhanes_cardio disponível
+# Rode 00_config.R antes (ele cria dados, dados_treino e dados_teste)
 # ══════════════════════════════════════════════════════════════════════════════
 
 # ── 0. Pacotes ────────────────────────────────────────────────────────────────
-# Pacotes carregados em 00_setup.R
+# Pacotes carregados em 00_config.R
 
 # ── 1. Dados ─────────────────────────────────────────────────────────────────
 
@@ -45,7 +45,7 @@ rpart.plot(
   fallen.leaves = TRUE,
   box.palette   = "BuGn",
   roundint      = FALSE,
-  main          = "Aprendiz fraco: árvore simples sem divisão."
+  main          = "Aprendiz fraco: stump — árvore com um único split"
 )
 dev.off()
 
@@ -53,8 +53,10 @@ set.seed(42)
 
 # Modelo GBM completo: 500 stumps encadeados em sequência (interaction.depth = 1).
 # Cada árvore é um stump, mas o ensemble das 500 é o gradient boosting em si.
+# ". - has_pas" = todos os preditores do banco, exceto o desfecho fator
+# (assim o exercicio.R usa automaticamente as variáveis novas)
 modelo_gbm <- gbm(
-  has_pas_num ~ idade + sexo + raca + whr + renda + colesterol + diabetes + fumante + sedentarismo,
+  has_pas_num ~ . - has_pas,
   data             = treino_gbm,
   distribution     = "bernoulli",   # log-loss — adequada para classificação binária
   n.trees          = 500,           # máximo de stumps a treinar
@@ -75,8 +77,8 @@ modelo_gbm <- gbm(
 #   Cada observação recebe uma probabilidade predita p^ entre 0 e 1.
 #   O desvio mede o quão errada foi essa probabilidade usando o log:
 #     -2 * [ y * log(p^) + (1-y) * log(1 - p^) ]
-#   O log penaliza confiança errada severamente: prever 1% para quem infartou
-#   gera desvio alto; prever 49% errado gera desvio pequeno.
+#   O log penaliza confiança errada severamente: prever 1% para quem de fato
+#   tem HAS gera desvio alto; prever 49% errado gera desvio pequeno.
 #   O valor no gráfico é a média desse desvio sobre todas as observações.
 #   Não tem interpretação direta em unidades naturais — importa a tendência.
 #
@@ -87,31 +89,39 @@ modelo_gbm <- gbm(
 # O n ótimo de árvores é onde a curva de CV é mínima (linha vertical azul).
 # Adicionar mais árvores além desse ponto = overfitting.
 
-# gbm.perf() cria o gráfico internamente (base R), não retorna objeto ggplot.
-# Usamos png()/dev.off() para capturar o gráfico antes de ele ser exibido.
-png("output/03_gradient_boosting/gradient_boosting_curva_aprendizado.png", width = 900, height = 700, res = 120)
-n_otimo <- gbm.perf(
-  modelo_gbm,
-  method  = "cv",
-  plot.it = TRUE
+# gbm.perf() retorna o n ótimo de árvores segundo a validação cruzada interna
+n_otimo <- gbm.perf(modelo_gbm, method = "cv", plot.it = FALSE)
+
+# Em vez do gráfico pronto do gbm (labels em inglês), extraímos os erros
+# e montamos o ggplot — mesmo padrão visual dos demais gráficos do projeto
+curva_long <- data.frame(
+  arvores = rep(seq_along(modelo_gbm$cv.error), 2),
+  erro    = c(modelo_gbm$train.error, modelo_gbm$cv.error),
+  serie   = rep(c("Treino", "Validação cruzada"), each = length(modelo_gbm$cv.error))
 )
-title(
-  main    = "Curva de Aprendizado",
-  sub     = paste0("N ótimo de árvores (validação cruzada): ", n_otimo,
-                   " | Taxa de aprendizado: 0.05 | Profundidade: 1"),
-  cex.sub = 0.8, col.sub = "gray40"
-)
-# Cobre labels em inglês do gbm.perf() com branco, depois substitui em PTBR
-mtext("Iteration",          side = 1, line = 3, col = "white", cex = 1.0)
-mtext("Bernoulli deviance", side = 2, line = 3, col = "white", cex = 1.0, las = 0)
-mtext("Número de árvores (iterações)", side = 1, line = 3)
-mtext("Desvio de Bernoulli",           side = 2, line = 3, las = 0)
-legend("topright",
-  legend = c("Treino", "Validação cruzada"),
-  col    = c("black", "green"),
-  lwd    = 2, bty = "n"
-)
-dev.off()
+
+p_curva <- ggplot(curva_long, aes(x = arvores, y = erro, color = serie)) +
+  geom_line(linewidth = 0.9) +
+  geom_vline(xintercept = n_otimo, linetype = "dashed", color = "#2166ac") +
+  annotate(
+    "text", x = n_otimo, y = max(curva_long$erro),
+    label = paste0("n ótimo = ", n_otimo, " "),
+    hjust = 1.05, size = 3.5, color = "#2166ac"
+  ) +
+  scale_color_manual(values = c("Treino" = "black", "Validação cruzada" = "#4dac26")) +
+  labs(
+    title    = "Curva de Aprendizado — Gradient Boosting",
+    subtitle = paste0("Taxa de aprendizado: 0.05  |  Profundidade: 1 (stumps)  |  ",
+                      "n ótimo de árvores por validação cruzada: ", n_otimo),
+    x        = "Número de árvores (iterações)",
+    y        = "Desvio de Bernoulli (log-loss)",
+    color    = NULL
+  ) +
+  theme_minimal(base_size = 13) +
+  theme(legend.position = "top")
+print(p_curva)
+ggsave("output/03_gradient_boosting/gradient_boosting_curva_aprendizado.png", plot = p_curva,
+       width = 8, height = 6, dpi = 150, bg = "white")
 
 # ══════════════════════════════════════════════════════════════════════════════
 # 3.5 EVOLUÇÃO DAS PREDIÇÕES AO LONGO DAS ITERAÇÕES
@@ -120,7 +130,7 @@ dev.off()
 # Usamos predict(..., n.trees = k) para obter a predição do modelo com apenas
 # k árvores — e comparamos como a separação entre classes melhora.
 #
-# Cada painel mostra a distribuição das probabilidades preditas de infarto,
+# Cada painel mostra a distribuição das probabilidades preditas de HAS,
 # separada por desfecho real (Sim / Não).
 # • Com poucas árvores: distribuições sobrepostas — modelo confuso
 # • Com mais árvores:   distribuições se separam — modelo aprende
@@ -128,14 +138,16 @@ dev.off()
 # gbm() aceita fator nos preditores — não converter para character
 teste_gbm <- dados_teste
 
-iteracoes <- c(1, 10, 50, n_otimo)
+# sort(unique()) evita duplicatas se n_otimo for 1, 10 ou 50
+iteracoes <- sort(unique(c(1, 10, 50, n_otimo)))
 
 evol_df <- purrr::map_dfr(iteracoes, function(k) {
   prob <- predict(modelo_gbm, newdata = teste_gbm, n.trees = k, type = "response")
   data.frame(
     prob    = prob,
     has_pas = dados_teste$has_pas,
-    iter    = paste0("Árvores: ", k)
+    # factor com levels ordenados — sem isso, "Árvores: 250" viria antes de "Árvores: 50"
+    iter    = factor(paste0("Árvores: ", k), levels = paste0("Árvores: ", iteracoes))
   )
 })
 evol_df$iter <- factor(evol_df$iter, levels = paste0("Árvores: ", iteracoes))
@@ -143,17 +155,14 @@ evol_df$iter <- factor(evol_df$iter, levels = paste0("Árvores: ", iteracoes))
 p_evol <- ggplot(evol_df, aes(x = prob, fill = has_pas, color = has_pas)) +
   geom_density(alpha = 0.4, linewidth = 0.8) +
   facet_wrap(~ iter, nrow = 2) +
-  scale_fill_manual(values  = c("Sim" = "#d73027", "Yes" = "#d73027",
-                                "Não" = "#2166ac", "No"  = "#2166ac")) +
-  scale_color_manual(values = c("Sim" = "#d73027", "Yes" = "#d73027",
-                                "Não" = "#2166ac", "No"  = "#2166ac")) +
+  scale_fill_manual(values  = c("Sim" = "#d73027", "Não" = "#2166ac")) +
+  scale_color_manual(values = c("Sim" = "#d73027", "Não" = "#2166ac")) +
   labs(
     title    = "Evolução das Predições",
     subtitle = "Distribuição de P(Hipertensão) com k árvores acumuladas",
     x        = "P(Hipertensão = Sim)",
     y        = "Densidade",
-    fill     = "Hipertensão real", color = "Hipertensão real",
-    caption  = ""
+    fill     = "Hipertensão real", color = "Hipertensão real"
   ) +
   theme_minimal(base_size = 12) +
   theme(
@@ -183,7 +192,7 @@ rotulos   <- c("Taxa alta (0.30)", "Taxa média (0.05)", "Taxa baixa (0.01)")
 erros_lr <- purrr::map_dfr(seq_along(rates), function(i) {
   set.seed(42)
   m_tmp <- gbm(
-    has_pas_num ~ idade + sexo + raca + whr + renda + colesterol + diabetes + fumante + sedentarismo,
+    has_pas_num ~ . - has_pas,
     data              = treino_gbm,
     distribution      = "bernoulli",
     n.trees           = 300,
@@ -213,13 +222,8 @@ p_lr <- ggplot(erros_lr, aes(x = arvore, y = erro, color = rotulo)) +
   theme_minimal(base_size = 13) +
   theme(legend.position = "top")
 print(p_lr)
-ggsave("output/03_gradient_boosting/gradient_boosting_learning_rate.png",
-          plot = p_lr, 
-          width = 8, 
-          height = 6, 
-          dpi = 150, 
-          bg = "white"
-)
+ggsave("output/03_gradient_boosting/gradient_boosting_learning_rate.png", plot = p_lr,
+       width = 8, height = 6, dpi = 150, bg = "white")
 
 # ══════════════════════════════════════════════════════════════════════════════
 # 5. IMPLEMENTAÇÃO "DE PRODUÇÃO" VIA TIDYMODELS + XGBOOST
@@ -241,7 +245,7 @@ receita_xgb <- recipe(has_pas ~ ., data = dados_treino) %>%
 # trees = n_otimo  → n ótimo encontrado via CV no gbm (mesmo shrinkage/learn_rate)
 # learn_rate = 0.05
 #
-# Nota: com apenas 6 preditores (maioria binária), a regressão logística já
+# Nota: com apenas 9 preditores (vários binários), a regressão logística já
 # captura quase todo o sinal disponível. O XGBoost com stumps acompanha esse
 # resultado — o ganho pequeno sobre o baseline É o resultado correto para estes dados.
 espec_xgb <- boost_tree(
@@ -262,23 +266,22 @@ set.seed(42)
 modelo_xgb <- wf_xgb %>% fit(data = dados_treino)
 
 # 5.5 Avaliar no teste
-# Acurácia é enganosa com classes desbalanceadas. Usamos ROC + AUC.
-# Usamos ROC + AUC como métrica principal — igual ao script de rede neural.
+# Acurácia é enganosa com classes desbalanceadas. Usamos ROC + AUC como
+# métrica principal — igual aos demais scripts (bloco idêntico, repetição
+# proposital para manter cada script autocontido).
 #   AUC = 0.5 → modelo aleatório (inútil)
 #   AUC = 1.0 → modelo perfeito
 #   AUC > 0.7 → discriminação aceitável
 probs_teste <- predict(modelo_xgb, dados_teste, type = "prob") %>%
   bind_cols(dados_teste %>% select(has_pas))
 
-col_evento <- paste0(".pred_", levels(dados_teste$has_pas)[1])
-
 probs_roc <- probs_teste %>%
-  rename(prob_evento = all_of(col_evento))
+  rename(prob_evento = .pred_Sim)   # probabilidade do evento: HAS = "Sim"
 
-auc_gb <- roc_auc(probs_roc, truth = has_pas, prob_evento)
+auc_gb <- roc_auc(probs_roc, truth = has_pas, prob_evento, event_level = "second")
 cat("AUC do Gradient Boosting:", round(auc_gb$.estimate, 3), "\n")
 
-roc_df <- roc_curve(probs_roc, truth = has_pas, prob_evento)
+roc_df <- roc_curve(probs_roc, truth = has_pas, prob_evento, event_level = "second")
 ponto_otimo <- roc_df %>%
   mutate(youden = sensitivity + specificity - 1) %>%
   slice_max(youden, n = 1)
@@ -359,7 +362,62 @@ print(p_vip)
 ggsave("output/03_gradient_boosting/xgboost_importancia.png", plot = p_vip, width = 7, height = 5, dpi = 150, bg = "white")
 
 # ══════════════════════════════════════════════════════════════════════════════
-# 7. COMPARAÇÃO COM REGRESSÃO LOGÍSTICA (baseline)
+# 7. IMPORTÂNCIA POR PERMUTAÇÃO — MÉTODO AGNÓSTICO DE MODELO
+# ══════════════════════════════════════════════════════════════════════════════
+# A importância acima (ganho) ensina a MECÂNICA interna do boosting.
+# Esta aqui é um EXPERIMENTO: embaralhamos UMA variável por vez nos dados de
+# teste e medimos quanto o AUC cai. Queda grande = o modelo depende dela.
+# Por ser agnóstica de modelo, é a única métrica de importância comparável
+# ENTRE os scripts 02–04 (Gini ≠ ganho ≠ Olden).
+# NOTA: a permutação atua nas variáveis BRUTAS (sexo, raca...), não nas
+# dummies da receita — por isso o mapa de rótulos aqui usa os nomes brutos.
+
+pred_prob <- function(object, newdata) {
+  predict(object, newdata, type = "prob")$.pred_Sim
+}
+
+auc_evento_sim <- function(truth, estimate) {
+  roc_auc_vec(truth, estimate, event_level = "second")
+}
+
+rotulos_perm <- c(
+  "idade"        = "Idade",
+  "whr"          = "Razão cintura/estatura",
+  "renda"        = "Renda",
+  "colesterol"   = "Colesterol",
+  "sedentarismo" = "Sedentarismo (min/dia)",
+  "sexo"         = "Sexo",
+  "raca"         = "Raça/Etnia",
+  "diabetes"     = "Diabetes",
+  "fumante"      = "Tabagismo"
+)
+
+set.seed(42)
+imp_perm <- vip::vi_permute(
+  modelo_xgb,
+  train        = dados_teste,
+  target       = "has_pas",
+  metric       = auc_evento_sim,
+  smaller_is_better = FALSE,    # AUC maior = melhor (obrigatório p/ métrica customizada)
+  pred_wrapper = pred_prob,
+  nsim         = 10
+) %>%
+  mutate(Variable = dplyr::recode(Variable, !!!rotulos_perm))  # sem tradução = nome bruto (exercicio.R)
+
+p_perm <- ggplot(imp_perm, aes(x = Importance, y = reorder(Variable, Importance))) +
+  geom_col(fill = "#4dac26", color = "white") +
+  labs(
+    title    = "Importância por permutação: XGBoost",
+    subtitle = "Queda média de AUC ao embaralhar cada variável\n(10 repetições, dados de teste)",
+    x        = "Queda de AUC", y = NULL
+  ) +
+  theme_minimal(base_size = 13)
+print(p_perm)
+ggsave("output/03_gradient_boosting/xgboost_importancia_permutacao.png", plot = p_perm,
+       width = 7, height = 5, dpi = 150, bg = "white")
+
+# ══════════════════════════════════════════════════════════════════════════════
+# 8. COMPARAÇÃO COM REGRESSÃO LOGÍSTICA (baseline)
 # ══════════════════════════════════════════════════════════════════════════════
 if (exists("auc_lr")) {
   cat(sprintf(
@@ -367,7 +425,7 @@ if (exists("auc_lr")) {
     auc_lr$.estimate, auc_gb$.estimate, auc_gb$.estimate - auc_lr$.estimate
   ))
 } else {
-  cat("\n[Comparação] Rode 01_logistic_regression.R antes para ver o ganho sobre o baseline.\n")
+  cat("\n[Comparação] Rode 01_regressao.R antes para ver o ganho sobre o baseline.\n")
 }
 
 # ══════════════════════════════════════════════════════════════════════════════

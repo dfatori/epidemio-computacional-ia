@@ -19,9 +19,17 @@ pkg_load("rpart.plot")
 pkg_load("gbm")
 pkg_load("NeuralNetTools")
 pkg_load("ggplotify")
-pkg_load("brulee")
+pkg_load("brulee")   # usado no script 04 para a comparação 1 vs 2 camadas ocultas
 pkg_load("webshot2")
-# torch::install_torch() # se precisar
+
+# O pacote brulee precisa do backend torch: bibliotecas nativas que não
+# vem com R. Importante: sem torch, o script 04 falha.
+# Abaixo, instala automaticamente se estiver faltando (download uma única vez;
+# a primeira execução pode demorar alguns minutos).
+if (requireNamespace("torch", quietly = TRUE) && !torch::torch_is_installed()) {
+  message("Instalando o backend torch (necessário para o script 04, uma vez só)...")
+  torch::install_torch()
+}
 
 # ── 1. Carregar tabelas ────────────────────
 # Baixa do NHANES na primeira execução; usa cache local nas seguintes.
@@ -66,7 +74,9 @@ nhanes_cardio <- nhanes_cardio %>%
     smq020       = SMQ020,     # "Yes"(fumou 100+ cigarros na vida), "No"
     smq040       = SMQ040,     # "Every day", "Some days", "Not at all" — só para quem fumou
     sedentarismo = PAD680,     # Minutos sentado por dia (contínuo)
-    pas          = BPXOSY3    # Pressão sistólica — média das 3 medidas oscilométricas (mmHg)
+    pas1         = BPXOSY1,    # Pressão sistólica — 1ª medida oscilométrica (mmHg)
+    pas2         = BPXOSY2,    # 2ª medida
+    pas3         = BPXOSY3     # 3ª medida
   )
 
 # ── 4. Explorar valores brutos ANTES de limpar ────────────────────────────────
@@ -104,6 +114,7 @@ nhanes_cardio <- nhanes_cardio %>%
                      "Demais" = c("Mexicano-americano", "Outro hispânico",
                                   "Negro não-hispânico", "Asiático não-hispânico",
                                   "Outra raça/multirracial")),
+    # NOTA: "Limítrofe" colapsado em "Não" — decisão simplificadora, discutível em aula
     diabetes     = fct_collapse(
                      fct_recode(diabetes, "Sim" = "Yes", "Não" = "No", "Limítrofe" = "Borderline"),
                      "Sim" = "Sim",
@@ -130,12 +141,22 @@ nhanes_cardio <- nhanes_cardio %>%
                        "Solteiro(a)"                        = "Never married"),
                      "Casado(a)/União estável" = "Casado(a)/União estável",
                      "Demais"                  = c("Viúvo(a)/Divorciado(a)/Separado(a)", "Solteiro(a)")),
+    # PAS: média das 3 medidas oscilométricas (recomendação NHANES —
+    # reduz a variabilidade de uma leitura isolada)
+    pas          = rowMeans(cbind(pas1, pas2, pas3), na.rm = TRUE),
     # PAS ≥ 140 mmHg — Critério BR
+    # NOTA: medida em um único dia NÃO é diagnóstico clínico de HAS —
+    # é um desfecho operacional para fins didáticos.
+    # Os níveis ficam na ordem alfabética padrão ("Não", "Sim"):
+    #   • glm() modela P(2º nível) = P("Sim") → ORs da regressão logística
+    #     se referem a TER HAS (direção epidemiologicamente intuitiva)
+    #   • o yardstick assume o 1º nível como evento — por isso os scripts
+    #     01–04 passam event_level = "second" explicitamente na ROC/AUC
     has_pas      = factor(ifelse(pas >= 140, "Sim", "Não")),
     # WHtR — Waist-to-Height Ratio (Ashwell et al.): risco ↑ se > 0,5
     whr          = cintura / altura
   ) %>%
-  select(-smq020, -smq040)
+  select(-smq020, -smq040, -pas1, -pas2, -pas3)
 
 # ── 6. Restringir a adultos (≥ 18 anos) ──────────────────────────────────────
 nhanes_cardio <- nhanes_cardio %>%
@@ -171,15 +192,20 @@ tabela_desc <- nhanes_cardio %>%
 # Tabela descritiva em HTML e PNG
 tabela_desc %>% 
   as_gt() %>% 
-  gt::gtsave("output/00_setup/tabela_descritiva.html")
+  gt::gtsave("output/00_config/tabela_descritiva.html")
 
 tabela_desc %>% 
   as_gt() %>% 
-  gt::gtsave("output/00_setup/tabela_descritiva.png")
+  gt::gtsave("output/00_config/tabela_descritiva.png")
 
 # ── 8. Preparar dados para modelagem ──────────────────────────────────────────
 # Preditores usados em TODOS os scripts de modelagem (01 a 04).
 # Split feito aqui uma única vez — garante comparabilidade entre modelos.
+# drop_na() = análise de casos completos: simples e transparente para fins
+# didáticos, mas descarta observações e pode introduzir viés de seleção.
+# Em produção, considere imputação (ex.: step_impute_* do tidymodels).
+# NOTA: os pesos amostrais do NHANES são ignorados de propósito — aqui o
+# objetivo é modelagem preditiva, não estimativa populacional.
 dados <- nhanes_cardio %>%
   select(has_pas, idade, sexo, raca, whr, renda, colesterol, diabetes, fumante, sedentarismo) %>%
   drop_na() # Remove observações com dados perdidos

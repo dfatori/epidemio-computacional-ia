@@ -1,24 +1,25 @@
 # ══════════════════════════════════════════════════════════════════════════════
 # NHANES 2021-2023 — Rede Neural para Predição de HAS (foco didático)
-# Rode setup.R antes para ter nhanes_cardio disponível
+# Rode 00_config.R antes (ele cria dados, dados_treino e dados_teste)
 # ══════════════════════════════════════════════════════════════════════════════
 
 # ── 0. Pacotes ────────────────────────────────────────────────────────────────
-# Pacotes carregados em 00_setup.R
+# Pacotes carregados em 00_config.R
 
 # ── 1. Dados ─────────────────────────────────────────────────────────────────
-# dados, dados_treino e dados_teste preparados pelo 00_setup.R
+# dados, dados_treino e dados_teste preparados pelo 00_config.R
 
 # ── 2. Recipe: pré-processamento ──────────────────────────────────────────────
 # PASSO 1 — step_dummy():
 #   Converte fatores em variáveis indicadoras (0/1).
-#   Ex.: sexo vira "sexo_Masculino" (0 = Feminino, 1 = Masculino).
+#   Ex.: sexo vira "sexo_Feminino" (0 = Masculino, 1 = Feminino) —
+#   o 1º nível do fator ("Masculino") vira a referência e não gera dummy.
 #   Com one_hot = FALSE usamos k-1 dummies (evita multicolinearidade perfeita).
 #
 # PASSO 2 — step_normalize():
 #   Centraliza (média 0) e escala (dp 1) as variáveis numéricas.
 #   ESSENCIAL para redes neurais: sem isso variáveis em escalas grandes
-#   (ex.: colesterol ~200) dominam os pesos sobre variáveis pequenas (ex.: imc ~28).
+#   (ex.: colesterol ~200) dominam os pesos sobre variáveis pequenas (ex.: whr ~0,5).
 
 receita <- recipe(has_pas ~ ., data = dados_treino) %>%
   step_relevel(diabetes, ref_level = "Não") %>%
@@ -59,6 +60,8 @@ set.seed(42)
 modelo_nn <- wf_nn %>% fit(data = dados_treino)
 
 # ── 6. Avaliar no conjunto de teste ───────────────────────────────────────────
+# metrics() retorna acurácia e kappa — úteis como primeira olhada, mas a
+# acurácia é enganosa com classes desbalanceadas (ver ROC na seção 11).
 predict(modelo_nn, dados_teste) %>%
   bind_cols(dados_teste %>% select(has_pas)) %>%
   metrics(truth = has_pas, estimate = .pred_class)
@@ -146,7 +149,7 @@ p_net <- as.ggplot(function() {
     col.sub = "gray40"
   )
 })
-ggsave("output/04_neural_network/mlp_estrutura.png", plot = p_net,
+ggsave("output/04_rede_neural/mlp_estrutura.png", plot = p_net,
        width = 12, height = 7, dpi = 150, bg = "white")
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -176,7 +179,7 @@ ggsave("output/04_neural_network/mlp_estrutura.png", plot = p_net,
 x_vals   <- seq(-6, 6, by = 0.05)
 sig_vals <- 1 / (1 + exp(-x_vals))
 
-png("output/04_neural_network/conceito_sigmoide.png", width = 900, height = 700, res = 120)
+png("output/04_rede_neural/conceito_sigmoide.png", width = 900, height = 700, res = 120)
 plot(
   x_vals, sig_vals,
   type = "l", lwd  = 2.5, col  = "#2166ac",
@@ -209,6 +212,12 @@ dev.off()
 # Preserva o SINAL — diferente de Garson(), que usa valores absolutos:
 #   • Barra positiva : variável aumenta a probabilidade de HAS
 #   • Barra negativa : variável reduz a probabilidade de HAS
+#
+# RESSALVA: o Olden lê a ESTRUTURA interna (pesos). Com preditores
+# correlacionados, a rede "divide/compensa" pesos entre eles e o sinal pode
+# sair errado (ex.: aqui o sedentarismo aparece "protetor", o que não se
+# sustenta epidemiologicamente). Para importância confiável, ver permutação
+# na seção 10.
 
 # Rótulos sem "\n" para caber melhor no eixo horizontal do gráfico de barras
 rotulos_olden <- unname(gsub("\n", " ", rotulos_entrada))
@@ -238,14 +247,70 @@ p_olden <- ggplot(imp_df,
   theme_minimal(base_size = 12) +
   theme(plot.caption = element_text(color = "gray40", size = 9))
 print(p_olden)
-ggsave("output/04_neural_network/mlp_importancia.png", plot = p_olden, width = 8, height = 5, dpi = 150, bg = "white")
+ggsave("output/04_rede_neural/mlp_importancia.png", plot = p_olden, width = 8, height = 5, dpi = 150, bg = "white")
 
 # ══════════════════════════════════════════════════════════════════════════════
-# 10. CURVA ROC + AUC
+# 10. IMPORTÂNCIA POR PERMUTAÇÃO — MÉTODO AGNÓSTICO DE MODELO
 # ══════════════════════════════════════════════════════════════════════════════
-# Acurácia é enganosa com classes desbalanceadas.
+# Diferente do Olden (que lê os pesos internos), este é um EXPERIMENTO:
+# embaralhamos UMA variável por vez nos dados de teste e medimos quanto o
+# AUC cai. Queda grande = o modelo depende dela.
+# Por ser agnóstica de modelo, é a única métrica de importância comparável
+# ENTRE os scripts 02–04 (Gini ≠ ganho ≠ Olden).
+# NOTA: a permutação atua nas variáveis BRUTAS (sexo, raca...), não nas
+# dummies da receita — por isso o mapa de rótulos aqui usa os nomes brutos.
+
+pred_prob <- function(object, newdata) {
+  predict(object, newdata, type = "prob")$.pred_Sim
+}
+
+auc_evento_sim <- function(truth, estimate) {
+  roc_auc_vec(truth, estimate, event_level = "second")
+}
+
+rotulos_perm <- c(
+  "idade"        = "Idade",
+  "whr"          = "Razão cintura/estatura",
+  "renda"        = "Renda",
+  "colesterol"   = "Colesterol",
+  "sedentarismo" = "Sedentarismo (min/dia)",
+  "sexo"         = "Sexo",
+  "raca"         = "Raça/Etnia",
+  "diabetes"     = "Diabetes",
+  "fumante"      = "Tabagismo"
+)
+
+set.seed(42)
+imp_perm <- vip::vi_permute(
+  modelo_nn,
+  train        = dados_teste,
+  target       = "has_pas",
+  metric       = auc_evento_sim,
+  smaller_is_better = FALSE,    # AUC maior = melhor (obrigatório p/ métrica customizada)
+  pred_wrapper = pred_prob,
+  nsim         = 10
+) %>%
+  mutate(Variable = dplyr::recode(Variable, !!!rotulos_perm))  # sem tradução = nome bruto (exercicio.R)
+
+p_perm <- ggplot(imp_perm, aes(x = Importance, y = reorder(Variable, Importance))) +
+  geom_col(fill = "#4dac26", color = "white") +
+  labs(
+    title    = "Importância por permutação: Rede Neural",
+    subtitle = "Queda média de AUC ao embaralhar cada variável\n(10 repetições, dados de teste)",
+    x        = "Queda de AUC", y = NULL
+  ) +
+  theme_minimal(base_size = 13)
+print(p_perm)
+ggsave("output/04_rede_neural/mlp_importancia_permutacao.png", plot = p_perm,
+       width = 7, height = 5, dpi = 150, bg = "white")
+
+# ══════════════════════════════════════════════════════════════════════════════
+# 11. CURVA ROC + AUC
+# ══════════════════════════════════════════════════════════════════════════════
 # A curva ROC mostra o trade-off sensibilidade × especificidade em TODOS
 # os limiares de decisão possíveis.
+# Este bloco de avaliação é idêntico ao do script 01 (repetição proposital:
+# cada script é autocontido e a métrica comum permite comparar os modelos).
 #   AUC = 0,5 → modelo aleatório (inútil)
 #   AUC = 1,0 → modelo perfeito
 #   AUC > 0,7 → discriminação aceitável
@@ -253,19 +318,15 @@ ggsave("output/04_neural_network/mlp_importancia.png", plot = p_olden, width = 8
 probs_teste <- predict(modelo_nn, dados_teste, type = "prob") %>%
   bind_cols(dados_teste %>% select(has_pas))
 
-# Detectar automaticamente o nome da coluna do evento positivo
-# (primeiro nível do fator: "Sim" em PT-BR ou "Yes" em inglês)
-col_evento <- paste0(".pred_", levels(dados_teste$has_pas)[1])
-
 probs_roc <- probs_teste %>%
-  rename(prob_evento = all_of(col_evento))
+  rename(prob_evento = .pred_Sim)   # probabilidade do evento: HAS = "Sim"
 
-# AUC numérico
-auc_nn <- roc_auc(probs_roc, truth = has_pas, prob_evento)
+# AUC numérico — evento = "Sim" (2º nível do fator, daí event_level = "second")
+auc_nn <- roc_auc(probs_roc, truth = has_pas, prob_evento, event_level = "second")
 cat("AUC da rede neural:", round(auc_nn$.estimate, 3), "\n")
 
 # Gráfico
-roc_df <- roc_curve(probs_roc, truth = has_pas, prob_evento)
+roc_df <- roc_curve(probs_roc, truth = has_pas, prob_evento, event_level = "second")
 ponto_otimo <- roc_df %>%
   mutate(youden = sensitivity + specificity - 1) %>%
   slice_max(youden, n = 1)
@@ -302,16 +363,16 @@ p_roc <- roc_df %>%
   theme_minimal(base_size = 12) +
   theme(plot.caption = element_text(color = "gray40", size = 9))
 print(p_roc)
-ggsave("output/04_neural_network/mlp_roc.png", plot = p_roc, width = 7, height = 6, dpi = 150)
+ggsave("output/04_rede_neural/mlp_roc.png", plot = p_roc, width = 7, height = 6, dpi = 150)
 
 # ══════════════════════════════════════════════════════════════════════════════
-# 11. COMPARAÇÃO DE PROFUNDIDADE: 1 vs 2 CAMADAS OCULTAS
+# 12. COMPARAÇÃO DE PROFUNDIDADE: 1 vs 2 CAMADAS OCULTAS
 # ══════════════════════════════════════════════════════════════════════════════
 # O engine "nnet" suporta apenas 1 camada oculta.
 # Para múltiplas camadas usamos "brulee" (torch), que aceita hidden_units
 # como vetor: c(4, 4) = duas camadas ocultas de 4 neurônios cada.
 
-# brulee carregado em 00_setup.R
+# brulee carregado em 00_config.R
 
 # ── Especificações ─────────────────────────────────────────────────────────────
 # Mesma receita (receita) e mesmo split (dados_treino / dados_teste) das seções anteriores.
@@ -341,14 +402,14 @@ modelo_2c <- workflow() %>%
 get_probs <- function(modelo, dados) {
   predict(modelo, dados, type = "prob") %>%
     bind_cols(dados %>% select(has_pas)) %>%
-    rename(prob_evento = all_of(paste0(".pred_", levels(dados$has_pas)[1])))
+    rename(prob_evento = .pred_Sim)
 }
 
 probs_1c <- get_probs(modelo_1c, dados_teste)
 probs_2c <- get_probs(modelo_2c, dados_teste)
 
-auc_1c <- roc_auc(probs_1c, truth = has_pas, prob_evento)$.estimate
-auc_2c <- roc_auc(probs_2c, truth = has_pas, prob_evento)$.estimate
+auc_1c <- roc_auc(probs_1c, truth = has_pas, prob_evento, event_level = "second")$.estimate
+auc_2c <- roc_auc(probs_2c, truth = has_pas, prob_evento, event_level = "second")$.estimate
 cat("AUC — 1 camada oculta :", round(auc_1c, 3), "\n")
 cat("AUC — 2 camadas ocultas:", round(auc_2c, 3), "\n")
 
@@ -359,9 +420,9 @@ cat("AUC — 2 camadas ocultas:", round(auc_2c, 3), "\n")
 # profundidade ajuda em imagens/texto (muitos parâmetros livres), não aqui.
 
 roc_comparacao <- bind_rows(
-  roc_curve(probs_1c, truth = has_pas, prob_evento) %>%
+  roc_curve(probs_1c, truth = has_pas, prob_evento, event_level = "second") %>%
     mutate(modelo = paste0("1 camada   (AUC = ", round(auc_1c, 3), ")")),
-  roc_curve(probs_2c, truth = has_pas, prob_evento) %>%
+  roc_curve(probs_2c, truth = has_pas, prob_evento, event_level = "second") %>%
     mutate(modelo = paste0("2 camadas  (AUC = ", round(auc_2c, 3), ")"))
 )
 
@@ -384,7 +445,7 @@ p_comp <- ggplot(roc_comparacao,
     plot.caption      = element_text(color = "gray40", size = 9)
   )
 print(p_comp)
-ggsave("output/04_neural_network/mlp_comparacao_camadas.png", plot = p_comp,
+ggsave("output/04_rede_neural/mlp_comparacao_camadas.png", plot = p_comp,
        width = 8, height = 6, dpi = 150, bg = "white")
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -396,7 +457,7 @@ if (exists("auc_lr")) {
     auc_lr$.estimate, auc_nn$.estimate, auc_nn$.estimate - auc_lr$.estimate
   ))
 } else {
-  cat("\n[Comparação] Rode 01_logistic_regression.R antes para ver o ganho sobre o baseline.\n")
+  cat("\n[Comparação] Rode 01_regressao.R antes para ver o ganho sobre o baseline.\n")
 }
 
 # ══════════════════════════════════════════════════════════════════════════════
