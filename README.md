@@ -56,13 +56,13 @@ Modelo preditivo de hipertensão em adultos com 9 preditores sociodemográficos 
 
 ## Fluxo de trabalho
 
-| # | Script | Modelo | Desfecho |
+| # | Script | Modelo | 
 |---|---|---|---|
-| 00 | `00_config.R` | — | Download e limpeza dos dados |
-| 01 | `01_regressao.R` | Regressão Logística | HAS (PAS ≥ 140 mmHg) |
-| 02 | `02_random_forest.R` | Árvore de Decisão + Random Forest | HAS (PAS ≥ 140 mmHg) |
-| 03 | `03_gradient_boosting.R` | Gradient Boosting (stumps iterativos) | HAS (PAS ≥ 140 mmHg) |
-| 04 | `04_rede_neural.R` | Rede Neural MLP (`nnet` + `brulee`) | HAS (PAS ≥ 140 mmHg) |
+| 00 | `00_config.R` | — |
+| 01 | `01_regressao.R` | Regressão Logística |
+| 02 | `02_random_forest.R` | Árvore de Decisão + Random Forest |
+| 03 | `03_gradient_boosting.R` | Gradient Boosting |
+| 04 | `04_rede_neural.R` | Rede Neural MLP |
 
 ## Variáveis preditoras
 
