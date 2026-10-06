@@ -13,6 +13,7 @@ pkg_load("nhanesA")
 pkg_load("dplyr")
 pkg_load("forcats")
 pkg_load("gtsummary")
+theme_gtsummary_language("pt", decimal.mark = ",", big.mark = ".")  # tabelas em PT-BR
 pkg_load("tidymodels")
 pkg_load("vip")
 pkg_load("rpart.plot")

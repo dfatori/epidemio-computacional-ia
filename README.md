@@ -31,10 +31,6 @@ Dados baixados pelo pacote [`nhanesA`](https://cran.r-project.org/package=nhanes
 | `SMQ_L` | Tabagismo (SMQ020 + SMQ040 → 3 categorias) |
 | `PAQ_L` | Atividade física: sedentarismo (min/dia sentado) |
 
-### Tabela descritiva dos dados
-
-<img src="output/00_config/tabela_descritiva.png" width="300"/>
-
 ---
 
 ## Estrutura do Repositório
@@ -42,20 +38,20 @@ Dados baixados pelo pacote [`nhanesA`](https://cran.r-project.org/package=nhanes
 ```
 .
 ├── scripts/
-│   ├── rodar.R                     # Executa o pipeline baseline (00–04)
-│   ├── 00_config.R                 # Download, limpeza e preparo dos dados
+│   ├── rodar.R                     # Executa o fluxo de trabalho (00–04)
+│   ├── 00_config.R                 # Baixa dados, limpeza e preparo
 │   ├── 01_regressao.R              # Regressão Logística
 │   ├── 02_random_forest.R          # Árvore de Decisão + Random Forest
-│   ├── 03_gradient_boosting.R      # Gradient Boosting (gbm / XGBoost)
-│   ├── 04_rede_neural.R            # Rede Neural (MLP: nnet + brulee)
-│   ├── exercicio.R                 # Fora da sequência: banco ampliado (~20 preditores)
-├── data/                           # Dados NHANES em cache (.rds)
+│   ├── 03_gradient_boosting.R      # Gradient Boosting
+│   ├── 04_rede_neural.R            # Rede Neural
+│   ├── exercicio.R                 # Banco ampliado (22 preditores)
+├── data/                           # Dados NHANES (.rds)
 └── output/                         # Tabelas e gráficos
 ```
 
 ---
 
-## Fluxo de trabalho
+# Análise 1: Fluxo de trabalho
 
 | # | Script | Modelo | Desfecho |
 |---|---|---|---|
@@ -65,24 +61,40 @@ Dados baixados pelo pacote [`nhanesA`](https://cran.r-project.org/package=nhanes
 | 03 | `03_gradient_boosting.R` | Gradient Boosting (stumps iterativos) | HAS (PAS ≥ 140 mmHg) |
 | 04 | `04_rede_neural.R` | Rede Neural MLP (`nnet` + `brulee`) | HAS (PAS ≥ 140 mmHg) |
 
-Pipeline completo (baseline, scripts numerados 00–04) a partir da raiz do projeto:
+---
 
-```r
-source("scripts/rodar.R")
-```
+## Tabela descritiva dos dados
 
-## Exercício para alunos
-
-`exercicio.R` expande o banco para ~20 preditores. Rode-o compare o desempenho dos modelos.
+[Abrir tabela descritiva — banco baseline](output/00_config/tabela_descritiva.png)
 
 ---
 
-## Conteúdo didático de cada script
+# Análise 2: Exercício para alunos(as)
 
-- **`01` — Regressão Logística**: função logística, log-odds, odds ratio, curva ROC.
-- **`02` — Árvore + Random Forest**: critério de Gini, overfitting (árvore rasa vs. profunda), importância de variáveis por redução de impureza (OOB).
-- **`03` — Gradient Boosting**: conceito de *aprendiz fraco*, taxa de aprendizado rate, detecção do número ótimo de árvores via validação cruzada.
-- **`04` — Rede Neural**: pré-processamento com `step_dummy` + `step_normalize`, arquitetura MLP (`nnet`), visualização de pesos, comparação 1 vs 2 camadas ocultas (`brulee`).
-- **`exercicio.R` — Exercício (opcional, fora da sequência)**: autocontido (roda o `00_config.R` internamente). Baixa 9 tabelas adicionais (HbA1c, triglicerídeos, HDL, PCR, ácido úrico, creatinina, álcool, sono, PHQ-9) e reconstrói `dados`/`dados_treino`/`dados_teste` com ~20 preditores. Rode os scripts 01–04 novamente e compare os AUCs.
+`exercicio.R` expande o banco de 9 para 22 preditores. Rode-o e compare o desempenho dos modelos.
+
+Variáveis adicionais:
+
+| Variável | Descrição | Tabela NHANES |
+|---|---|---|
+| `escolaridade` | Graduação vs. sem graduação | `DEMO_L` |
+| `est_civil` | Casado/união estável vs. demais | `DEMO_L` |
+| `imc` | Índice de massa corporal (kg/m²) | `BMX_L` |
+| `freq_cardiaca` | Frequência cardíaca de repouso (bpm) | `BPXO_L` |
+| `hba1c` | Hemoglobina glicada (%) | `GHB_L` |
+| `hdl` | HDL colesterol (mg/dL) | `HDL_L` |
+| `pcr` | Proteína C-reativa, alta sensibilidade (mg/L) | `HSCRP_L` |
+| `ac_urico` | Ácido úrico sérico (mg/dL) | `BIOPRO_L` |
+| `creatinina` | Creatinina sérica (mg/dL) | `BIOPRO_L` |
+| `alcool` | Doses de álcool por dia (últimos 12 meses) | `ALQ_L` |
+| `sono_horas` | Horas de sono por noite | `SLQ_L` |
+| `saude_geral` | Saúde autorrelatada (boa vs. ruim) | `HUQ_L` |
+| `phq9` | Score de depressão PHQ-9 (0–27) | `DPQ_L` |
+
+---
+
+## Tabela descritiva dos dados
+
+[Abrir tabela descritiva — variáveis adicionais do banco ampliado](output/exer cicio/tabela_descritiva_ampliada.png)
 
 ---
