@@ -14,24 +14,18 @@
 #   automaticamente o conjunto escolhido.
 #   Única exigência: rodar a partir da raiz do projeto (como os demais).
 #
-# COMPARABILIDADE: as duas rodadas (baseline e ampliado) usam EXATAMENTE as
-# mesmas pessoas e o mesmo split treino/teste — só muda o conjunto de
-# preditores. Sem isso, uma diferença de AUC poderia vir da mudança de
-# amostra, não das variáveis novas.
+# COMPARABILIDADE: a referência são os resultados da Análise 1, já salvos
+# em output/ no repositório — não é preciso rodar o pipeline baseline.
+# O banco abaixo usa casos completos nas 22 variáveis (N = 3.944).
 #
 # TAREFA DO ALUNO:
-#   1. Deixe a CHAVE abaixo em FALSE → rode este script → rode 01–04 → anote
-#      os AUCs (baseline do exercício: 9 preditores)
-#   2. Mude a chave para TRUE → rode este script de novo → rode 01–04 →
-#      compare os AUCs (22 preditores, mesmas pessoas)
+#   1. Rode este script — ele prepara o banco ampliado E roda os 4 modelos
+#      (01–04) automaticamente, terminando com a tabela de AUCs
+#   2. Compare com os resultados da Análise 1 (já salvos no repositório)
 #   3. Quais variáveis apareceram como mais importantes?
 #   4. O ganho de AUC justifica a complexidade extra?
 #   5. Qual modelo performa melhor? Segundo quais critérios?
 # ══════════════════════════════════════════════════════════════════════════════
-
-# ── CHAVE DO EXERCÍCIO ────────────────────────────────────────────────────────
-# FALSE = baseline (9 preditores)   |   TRUE = banco ampliado (22 preditores)
-usar_banco_ampliado <- FALSE
 
 # ── 0. Configuração  ──────────────────────────────────────────────────────────
 source("scripts/00_config.R")
@@ -166,10 +160,10 @@ tabela_desc_ampliada %>%
   gt::gtsave("output/exercicio/tabela_descritiva_ampliada.png")
 
 # ── 5. Preparar dados para modelagem (sobrescreve os objetos do 00_config.R) ──
-# drop_na() é aplicado ao banco COMPLETO (22 preditores), ANTES de escolher
-# as colunas da rodada: assim baseline e ampliado usam as mesmas pessoas.
+# ATENÇÃO: a partir daqui, dados/dados_treino/dados_teste contêm 22 preditores.
+# Os scripts 01–04 usarão este conjunto automaticamente.
 
-dados_completos <- nhanes_ext %>%
+dados <- nhanes_ext %>%
   select(
     has_pas,
     # ── preditores do baseline ────────────────────────────────────────────
@@ -183,37 +177,140 @@ dados_completos <- nhanes_ext %>%
   ) %>%
   drop_na()
 
-# Split ÚNICO sobre o banco completo — mesma semente e mesmas linhas nas
-# duas rodadas, então treino e teste são idênticos nos dois modos
 set.seed(42)
-split  <- initial_split(dados_completos, prop = 0.75, strata = has_pas)
-treino <- training(split)
-teste  <- testing(split)
-
-# A chave escolhe apenas as COLUNAS — nunca as linhas
-vars_baseline <- c("idade", "sexo", "raca", "whr", "renda", "colesterol",
-                   "diabetes", "fumante", "sedentarismo")
-
-if (usar_banco_ampliado) {
-  dados_treino <- treino
-  dados_teste  <- teste
-} else {
-  dados_treino <- treino %>% select(has_pas, all_of(vars_baseline))
-  dados_teste  <- teste  %>% select(has_pas, all_of(vars_baseline))
-}
-dados <- bind_rows(dados_treino, dados_teste)
+split        <- initial_split(dados, prop = 0.75, strata = has_pas)
+dados_treino <- training(split)
+dados_teste  <- testing(split)
 
 cat(sprintf(
-  "\nAmostra do exercício: %d obs (treino: %d | teste: %d) — IDÊNTICA nas duas rodadas\n",
-  nrow(dados), nrow(dados_treino), nrow(dados_teste)
+  "Banco ampliado pronto: %d obs × %d preditores (treino: %d | teste: %d)\n\n",
+  nrow(dados), ncol(dados) - 1, nrow(dados_treino), nrow(dados_teste)
 ))
-if (usar_banco_ampliado) {
-  cat(sprintf("Modo AMPLIADO: %d preditores. Rode 01–04 e compare com os AUCs anotados.\n",
-              ncol(dados) - 1))
-} else {
-  cat("Modo BASELINE: 9 preditores. Rode 01–04, anote os AUCs,\n")
-  cat("depois mude usar_banco_ampliado para TRUE e repita.\n")
+
+# ══════════════════════════════════════════════════════════════════════════════
+# 6. MODELOS — versões condensadas dos scripts 01–04
+# ══════════════════════════════════════════════════════════════════════════════
+# Mesmos 4 modelos da Análise 1, sem os gráficos de conceito (que já foram
+# vistos): aqui importa só a comparação — AUC, ROC e importância das variáveis.
+# Tudo é salvo em output/exercicio/: os resultados da Análise 1 ficam intactos.
+
+# ── Funções auxiliares do bloco de avaliação (usadas pelos 4 modelos) ───────
+# pred_prob: probabilidade do evento (has_pas = "Sim")
+pred_prob <- function(object, newdata) {
+  predict(object, newdata, type = "prob")$.pred_Sim
 }
+
+# AUC com evento = "Sim" (2º nível do fator) — mesma convenção dos scripts 01–04
+auc_evento_sim <- function(truth, estimate) {
+  roc_auc_vec(truth, estimate, event_level = "second")
+}
+
+# Rótulos PT-BR para os 22 preditores (gráficos de importância)
+rotulos <- c(
+  "idade" = "Idade", "sexo" = "Sexo", "raca" = "Raça/Etnia",
+  "whr" = "Razão cintura/estatura", "renda" = "Renda",
+  "colesterol" = "Colesterol", "diabetes" = "Diabetes", "fumante" = "Tabagismo",
+  "sedentarismo" = "Sedentarismo (min/dia)",
+  "escolaridade" = "Escolaridade", "est_civil" = "Estado civil",
+  "imc" = "IMC", "freq_cardiaca" = "Freq. cardíaca (bpm)",
+  "hba1c" = "HbA1c", "hdl" = "HDL", "pcr" = "PCR",
+  "ac_urico" = "Ácido úrico", "creatinina" = "Creatinina",
+  "alcool" = "Álcool (doses/dia)", "sono_horas" = "Sono (h/noite)",
+  "saude_geral" = "Saúde autorrelatada", "phq9" = "PHQ-9 (depressão)"
+)
+
+# avalia(): AUC + curva ROC + importância por permutação de um modelo ajustado.
+# É a condensação dos blocos de avaliação dos scripts 01–04 — repare que o
+# MESMO código serve para os 4 modelos: essa uniformidade é o tidymodels.
+avalia <- function(modelo, nome, arquivo) {
+  # AUC + ROC no conjunto de teste
+  probs <- predict(modelo, dados_teste, type = "prob") %>%
+    bind_cols(dados_teste %>% select(has_pas)) %>%
+    rename(prob_evento = .pred_Sim)
+  auc <- roc_auc(probs, truth = has_pas, prob_evento, event_level = "second")
+  cat(sprintf("AUC — %s: %.3f\n", nome, auc$.estimate))
+
+  p_roc <- roc_curve(probs, truth = has_pas, prob_evento, event_level = "second") %>%
+    autoplot() +
+    labs(title = paste0("Curva ROC — ", nome, " (banco ampliado)")) +
+    theme_minimal(base_size = 12)
+  ggsave(file.path("output/exercicio", paste0(arquivo, "_roc.png")), p_roc,
+         width = 7, height = 6, dpi = 150, bg = "white")
+
+  # Importância por permutação: queda de AUC ao embaralhar cada variável
+  set.seed(42)
+  imp <- vip::vi_permute(
+    modelo,
+    train             = dados_teste,
+    target            = "has_pas",
+    metric            = auc_evento_sim,
+    smaller_is_better = FALSE,
+    pred_wrapper      = pred_prob,
+    nsim              = 10
+  ) %>%
+    mutate(Variable = dplyr::recode(Variable, !!!rotulos))
+
+  p_imp <- ggplot(imp, aes(x = Importance, y = reorder(Variable, Importance))) +
+    geom_col(fill = "#4dac26", color = "white") +
+    labs(title = paste0("Importância por permutação — ", nome),
+         x = "Queda de AUC", y = NULL) +
+    theme_minimal(base_size = 12)
+  ggsave(file.path("output/exercicio", paste0(arquivo, "_importancia.png")), p_imp,
+         width = 7, height = 6, dpi = 150, bg = "white")
+
+  invisible(auc$.estimate)
+}
+
+# Receita única (mesma dos scripts 01–04): dummies + normalização
+receita <- recipe(has_pas ~ ., data = dados_treino) %>%
+  step_dummy(all_nominal_predictors(), one_hot = FALSE) %>%
+  step_normalize(all_numeric_predictors())
+
+# ── 6.1 Regressão Logística ──────────────────────────────────────────────────
+modelo_lr <- workflow() %>%
+  add_recipe(receita) %>%
+  add_model(logistic_reg() %>% set_engine("glm") %>% set_mode("classification")) %>%
+  fit(data = dados_treino)
+auc_lr_ex <- avalia(modelo_lr, "Regressão Logística", "logistica")
+
+# ── 6.2 Random Forest ────────────────────────────────────────────────────────
+set.seed(42)  # o bootstrap do RF é aleatório
+modelo_rf <- rand_forest(trees = 500, mtry = floor(sqrt(ncol(dados_treino) - 1))) %>%
+  set_engine("ranger", importance = "impurity") %>%
+  set_mode("classification") %>%
+  fit(has_pas ~ ., data = dados_treino)
+auc_rf_ex <- avalia(modelo_rf, "Random Forest", "random_forest")
+
+# ── 6.3 Gradient Boosting (XGBoost) ──────────────────────────────────────────
+# No script 03, o nº de árvores vinha da validação cruzada do gbm; aqui
+# fixamos 300 stumps para manter o exercício enxuto
+set.seed(42)
+modelo_xgb <- workflow() %>%
+  add_recipe(receita) %>%
+  add_model(boost_tree(trees = 300, tree_depth = 1, learn_rate = 0.05) %>%
+              set_engine("xgboost") %>% set_mode("classification")) %>%
+  fit(data = dados_treino)
+auc_gb_ex <- avalia(modelo_xgb, "Gradient Boosting", "gradient_boosting")
+
+# ── 6.4 Rede Neural (MLP) ────────────────────────────────────────────────────
+set.seed(42)
+modelo_nn <- workflow() %>%
+  add_recipe(receita) %>%
+  add_model(mlp(hidden_units = 4, penalty = 0.01, epochs = 300) %>%
+              set_engine("nnet") %>% set_mode("classification")) %>%
+  fit(data = dados_treino)
+auc_nn_ex <- avalia(modelo_nn, "Rede Neural", "rede_neural")
+
+# ── 7. Resumo: AUCs do banco ampliado ────────────────────────────────────────
+# Compare com os resultados da Análise 1 (banco baseline), salvos em output/
+cat("\n══ Resumo — AUCs do banco ampliado ════════════════════════════════════\n")
+resumo_auc <- data.frame(
+  Modelo = c("Regressão Logística", "Random Forest",
+             "Gradient Boosting (XGBoost)", "Rede Neural (MLP)"),
+  AUC    = c(auc_lr_ex, auc_rf_ex, auc_gb_ex, auc_nn_ex)
+)
+print(resumo_auc %>% arrange(desc(AUC)))
+cat("\nGráficos salvos em output/exercicio/ — compare com os da Análise 1.\n")
 
 # ══════════════════════════════════════════════════════════════════════════════
 # fim do script ────────────────────────────────────────────────────────────────

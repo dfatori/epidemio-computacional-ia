@@ -6,14 +6,31 @@ Este repositório contém análises didáticas de **aprendizado de máquina** ap
 
 ---
 
-
 ## Objetivo do repositório
 
 Apresentar conceitos básicos de aprendizado de máquina aplicados a área da epidemiologia. Os scripts e dados estão organizados de forma a permitir que o aluno possa baixar o conjunto completo de arquivos disponíveis do repositório e reproduzir as análises.
 
-## Objetivo da análise
+## Objetivo das análises
 
-Desenvolver um modelo preditivo de **hipertensão arterial sistêmica** (pressão sistólica ≥ 140 mmHg) a partir de variáveis sociodemográficas e clínicas utilizando dados do estudo epidemiológicos NHANES de 2021-2023.
+Desenvolver modelos preditivos de **hipertensão arterial sistêmica** (pressão sistólica ≥ 140 mmHg) a partir de variáveis sociodemográficas e clínicas utilizando dados do estudo epidemiológico NHANES de 2021-2023.
+
+---
+
+# Estrutura do Repositório
+
+```
+.
+├── scripts/
+│   ├── rodar.R                     # Executa o fluxo de trabalho (00–04)
+│   ├── 00_config.R                 # Baixa dados, limpeza e preparo
+│   ├── 01_regressao.R              # Regressão Logística
+│   ├── 02_random_forest.R          # Árvore de Decisão + Random Forest
+│   ├── 03_gradient_boosting.R      # Gradient Boosting
+│   ├── 04_rede_neural.R            # Rede Neural
+│   ├── exercicio.R                 # Banco ampliado (22 preditores)
+├── data/                           # Dados NHANES (.rds)
+└── output/                         # Tabelas e gráficos
+```
 
 ---
 
@@ -33,25 +50,11 @@ Dados baixados pelo pacote [`nhanesA`](https://cran.r-project.org/package=nhanes
 
 ---
 
-## Estrutura do Repositório
+# Análise 1
 
-```
-.
-├── scripts/
-│   ├── rodar.R                     # Executa o fluxo de trabalho (00–04)
-│   ├── 00_config.R                 # Baixa dados, limpeza e preparo
-│   ├── 01_regressao.R              # Regressão Logística
-│   ├── 02_random_forest.R          # Árvore de Decisão + Random Forest
-│   ├── 03_gradient_boosting.R      # Gradient Boosting
-│   ├── 04_rede_neural.R            # Rede Neural
-│   ├── exercicio.R                 # Banco ampliado (22 preditores)
-├── data/                           # Dados NHANES (.rds)
-└── output/                         # Tabelas e gráficos
-```
+Modelo preditivo de hipertensão em adultos com 9 preditores sociodemográficos e clínicos (idade, sexo, raça, razão cintura/estatura, renda, colesterol, diabetes, tabagismo, sedentarismo) do NHANES 2021–2023 (N=4.687).
 
----
-
-# Análise 1: Fluxo de trabalho
+## Fluxo de trabalho
 
 | # | Script | Modelo | Desfecho |
 |---|---|---|---|
@@ -61,19 +64,17 @@ Dados baixados pelo pacote [`nhanesA`](https://cran.r-project.org/package=nhanes
 | 03 | `03_gradient_boosting.R` | Gradient Boosting (stumps iterativos) | HAS (PAS ≥ 140 mmHg) |
 | 04 | `04_rede_neural.R` | Rede Neural MLP (`nnet` + `brulee`) | HAS (PAS ≥ 140 mmHg) |
 
----
-
-## Tabela descritiva dos dados
-
-[Abrir tabela descritiva — banco baseline](output/00_config/tabela_descritiva.png)
+[Tabela descritiva dos dados](output/00_config/tabela_descritiva.png)
 
 ---
 
-# Análise 2: Exercício para alunos(as)
+# Exercício
 
-`exercicio.R` expande o banco de 9 para 22 preditores. Rode-o e compare o desempenho dos modelos.
+Modelo preditivo de hipertensão em adultos com 22 preditores sociodemográficos, clínicos, laboratoriais e comportamentais (além das variáveis da análise 1: escolaridade, estado civil, IMC, frequência cardíaca, HbA1c, HDL, PCR, ácido úrico, creatinina, álcool, sono, saúde autorrelatada, PHQ-9) do NHANES 2021–2023 (N=3.944).
 
-Variáveis adicionais:
+---
+
+## Variáveis adicionais
 
 | Variável | Descrição | Tabela NHANES |
 |---|---|---|
@@ -91,10 +92,22 @@ Variáveis adicionais:
 | `saude_geral` | Saúde autorrelatada (boa vs. ruim) | `HUQ_L` |
 | `phq9` | Score de depressão PHQ-9 (0–27) | `DPQ_L` |
 
+[Tabela descritiva dos dados ampliados](output/exercicio/tabela_descritiva_ampliada.png)
+
 ---
 
-## Tabela descritiva dos dados
+## Passo a passo
 
-[Abrir tabela descritiva — variáveis adicionais do banco ampliado](output/exer cicio/tabela_descritiva_ampliada.png)
+**Antes de começar**
+
+1. Instale o **R** (https://cran.r-project.org) e o **RStudio** (https://posit.co/download/rstudio-desktop/);
+2. Baixe este repositório: no GitHub, botão verde **"Code" → "Download ZIP"**, e descompacte em uma pasta do seu computador;
+3. Dê **duplo-clique no arquivo `aula_concurso_epidemio.Rproj`**. Isso abre o RStudio já na pasta certa.
+
+**Rodando o exercício**
+
+4. No RStudio, abra o arquivo `scripts/exercicio.R` (painel de arquivos, canto inferior direito).
+5. Rode o script inteiro com **Ctrl + Shift + Enter**. Este script prepara o banco ampliado e roda os 4 modelos, terminando com a tabela de AUCs no console. Na primeira vez pode demorar vários minutos, já que instala pacotes e baixa os dados (precisa de internet).
+6. Compare a tabela final com os resultados da **Análise 1**, já salvos na pasta [`output/`](output/) do repositório: quanto cada modelo ganhou com as 13 variáveis extras? Valeu a pena? Será que mais variáveis são necessárias para um bom modelo?
 
 ---
