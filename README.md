@@ -64,6 +64,8 @@ Modelo preditivo de hipertensão em adultos com 9 preditores sociodemográficos 
 | 03 | `03_gradient_boosting.R` | Gradient Boosting (stumps iterativos) | HAS (PAS ≥ 140 mmHg) |
 | 04 | `04_rede_neural.R` | Rede Neural MLP (`nnet` + `brulee`) | HAS (PAS ≥ 140 mmHg) |
 
+## Variáveis preditoras
+
 [Tabela descritiva dos dados](output/00_config/tabela_descritiva.png)
 
 ---
@@ -74,23 +76,7 @@ Modelo preditivo de hipertensão em adultos com 22 preditores sociodemográficos
 
 ---
 
-## Variáveis adicionais
-
-| Variável | Descrição | Tabela NHANES |
-|---|---|---|
-| `escolaridade` | Graduação vs. sem graduação | `DEMO_L` |
-| `est_civil` | Casado/união estável vs. demais | `DEMO_L` |
-| `imc` | Índice de massa corporal (kg/m²) | `BMX_L` |
-| `freq_cardiaca` | Frequência cardíaca de repouso (bpm) | `BPXO_L` |
-| `hba1c` | Hemoglobina glicada (%) | `GHB_L` |
-| `hdl` | HDL colesterol (mg/dL) | `HDL_L` |
-| `pcr` | Proteína C-reativa, alta sensibilidade (mg/L) | `HSCRP_L` |
-| `ac_urico` | Ácido úrico sérico (mg/dL) | `BIOPRO_L` |
-| `creatinina` | Creatinina sérica (mg/dL) | `BIOPRO_L` |
-| `alcool` | Doses de álcool por dia (últimos 12 meses) | `ALQ_L` |
-| `sono_horas` | Horas de sono por noite | `SLQ_L` |
-| `saude_geral` | Saúde autorrelatada (boa vs. ruim) | `HUQ_L` |
-| `phq9` | Score de depressão PHQ-9 (0–27) | `DPQ_L` |
+## Variáveis preditoras
 
 [Tabela descritiva dos dados ampliados](output/exercicio/tabela_descritiva_ampliada.png)
 
