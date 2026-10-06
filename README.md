@@ -86,7 +86,7 @@ Modelo preditivo de hipertensão em adultos com 22 preditores sociodemográficos
 
 **Antes de começar**
 
-1. Instale o **R** (https://cran.r-project.org) e o **RStudio** (https://posit.co/download/rstudio-desktop/);
+1. Instale o **R** (https://cran.r-project.org) e o **RStudio** (https://posit.co/downloads);
 2. Baixe este repositório: no GitHub, botão verde **"Code" → "Download ZIP"**, e descompacte em uma pasta do seu computador;
 3. Dê **duplo-clique no arquivo `aula_concurso_epidemio.Rproj`**. Isso abre o RStudio já na pasta certa.
 
