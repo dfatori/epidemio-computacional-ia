@@ -1,6 +1,0 @@
-library(httpgd)
-hgd()
-plot(1:10)
-readLines("~/.Rprofile")
-write("", "~/.Rprofile")
-remove.packages("httpgd")
