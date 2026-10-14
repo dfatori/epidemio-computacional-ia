@@ -18,14 +18,14 @@
 # O Gradient Boosting usa centenas desses stumps em sequência,
 # cada um corrigindo os erros do anterior. A força vem da soma, não do indivíduo.
 
-# Usamos gbm() diretamente para tornar o processo iterativo VISÍVEL:
+# gbm() chamado diretamente, para tornar o processo iterativo VISÍVEL:
 #   interaction.depth = 1  → stump (o aprendiz fraco clássico)
 #   n.trees            → número de iterações (quantos stumps serão somados)
 #   shrinkage          → learning rate: quanto cada stump "pesa" na soma final
 #   cv.folds           → cross-validation interna para detectar o n ótimo de árvores
 
 # gbm() exige desfecho numérico (0/1) para distribuição "bernoulli"
-# Mantemos os preditores como fator: gbm aceita fator mas não character
+# Preditores mantidos como fator: gbm aceita fator, mas não character
 treino_gbm <- dados_treino %>%
   mutate(
     has_pas_num = as.integer(has_pas == "Sim")
@@ -70,19 +70,15 @@ modelo_gbm <- gbm(
 # ══════════════════════════════════════════════════════════════════════════════
 # 3. VISUALIZAÇÃO DIDÁTICA: CURVA DE APRENDIZADO
 # ══════════════════════════════════════════════════════════════════════════════
-# Este gráfico é a visualização central do Gradient Boosting:
-# mostra como o ERRO CAI a cada nova árvore adicionada.
+# Visualização central do Gradient Boosting: o ERRO cai a cada árvore adicionada.
 #
-# Eixo Y: Desvio de Bernoulli (log-loss):
-#   Cada observação recebe uma probabilidade predita p^ entre 0 e 1.
-#   O desvio mede o quão errada foi essa probabilidade usando o log:
+# Eixo Y: Desvio de Bernoulli (log-loss), médio sobre as observações:
 #     -2 * [ y * log(p^) + (1-y) * log(1 - p^) ]
-#   O log penaliza confiança errada severamente: prever 1% para quem de fato
-#   tem HAS gera desvio alto; prever 49% errado gera desvio pequeno.
-#   O valor no gráfico é a média desse desvio sobre todas as observações.
-#   Não tem interpretação direta em unidades naturais: importa a tendência.
+#   O log penaliza confiança errada com força: prever 1% para quem tem HAS
+#   gera desvio alto; errar com 49% gera desvio pequeno.
+#   Sem interpretação em unidades naturais: importa a tendência.
 #
-# Duas linhas são exibidas:
+# Duas linhas:
 #   • Treino (preto): erro no conjunto de treino: sempre cai com mais árvores
 #   • CV (verde):     erro na cross-validation: cai até certo ponto e estabiliza
 #
@@ -92,8 +88,8 @@ modelo_gbm <- gbm(
 # gbm.perf() retorna o n ótimo de árvores segundo a validação cruzada interna
 n_otimo <- gbm.perf(modelo_gbm, method = "cv", plot.it = FALSE)
 
-# Em vez do gráfico pronto do gbm (labels em inglês), extraímos os erros
-# e montamos o ggplot: mesmo padrão visual dos demais gráficos do projeto
+# Erros extraídos do gbm e plotados com ggplot (o gráfico pronto do gbm vem
+# com labels em inglês): mesmo padrão visual dos demais gráficos do projeto
 curva_long <- data.frame(
   arvores = rep(seq_along(modelo_gbm$cv.error), 2),
   erro    = c(modelo_gbm$train.error, modelo_gbm$cv.error),
@@ -126,9 +122,9 @@ ggsave("output/03_gradient_boosting/gradient_boosting_curva_aprendizado.png", pl
 # ══════════════════════════════════════════════════════════════════════════════
 # 3.5 EVOLUÇÃO DAS PREDIÇÕES AO LONGO DAS ITERAÇÕES
 # ══════════════════════════════════════════════════════════════════════════════
-# O que muda a cada nova árvore adicionada?
-# Usamos predict(..., n.trees = k) para obter a predição do modelo com apenas
-# k árvores: e comparamos como a separação entre classes melhora.
+# O que muda a cada nova árvore?
+# predict(..., n.trees = k) dá a predição do modelo com apenas k árvores:
+# compara como a separação entre classes melhora.
 #
 # Cada painel mostra a distribuição das probabilidades preditas de HAS,
 # separada por desfecho real (Sim / Não).
@@ -181,8 +177,8 @@ ggsave("output/03_gradient_boosting/gradient_boosting_evolucao_predicoes.png", p
 # • Taxa alta  (ex: 0.3): aprende rápido, precisa de menos árvores, mas mais grosseiro
 # • Taxa baixa (ex: 0.01): aprende devagar, precisa de muito mais árvores, mas mais fino
 #
-# Regra prática: use taxa baixa + muitas árvores para melhor performance.
-# Para didática, comparamos 3 taxas com o mesmo n.trees:
+# Regra prática: taxa baixa + muitas árvores = melhor performance.
+# Abaixo, 3 taxas com o mesmo n.trees:
 
 rates     <- c(0.3, 0.05, 0.01)
 cores_lr  <- c("#d73027", "#2166ac", "#4dac26")
@@ -228,14 +224,14 @@ ggsave("output/03_gradient_boosting/gradient_boosting_learning_rate.png", plot =
 # ══════════════════════════════════════════════════════════════════════════════
 # 5. IMPLEMENTAÇÃO "DE PRODUÇÃO" VIA TIDYMODELS + XGBOOST
 # ══════════════════════════════════════════════════════════════════════════════
-# Agora usamos o tidymodels (padrão do projeto) com XGBoost como engine.
+# Versão tidymodels (padrão do projeto), com XGBoost como engine.
 # XGBoost é Gradient Boosting com regularização L1/L2 e otimização de segunda
 # ordem (hessiana): mais robusto e rápido que gbm para dados grandes.
 
 # 5.1 Recipe
 # step_dummy: converte fatores em dummies (XGBoost aceita numérico)
 # step_normalize: não obrigatório para GB (árvores são invariantes à escala),
-#                 mas mantemos para consistência com os outros scripts
+#                 mas mantido por consistência com os outros scripts
 receita_xgb <- recipe(has_pas ~ ., data = dados_treino) %>%
   step_dummy(all_nominal_predictors(), one_hot = FALSE) %>%
   step_normalize(all_numeric_predictors())
@@ -266,7 +262,7 @@ set.seed(42)
 modelo_xgb <- wf_xgb %>% fit(data = dados_treino)
 
 # 5.5 Avaliar no teste
-# Acurácia é enganosa com classes desbalanceadas. Usamos ROC + AUC como
+# Acurácia é enganosa com classes desbalanceadas. ROC + AUC como
 # métrica principal: igual aos demais scripts (bloco idêntico, repetição
 # proposital para manter cada script autocontido).
 #   AUC = 0.5 → modelo aleatório (inútil)
@@ -362,8 +358,8 @@ ggsave("output/03_gradient_boosting/xgboost_importancia.png", plot = p_vip, widt
 # 7. IMPORTÂNCIA POR PERMUTAÇÃO: MÉTODO AGNÓSTICO DE MODELO
 # ══════════════════════════════════════════════════════════════════════════════
 # A importância acima (ganho) ensina a MECÂNICA interna do boosting.
-# Esta aqui é um EXPERIMENTO: embaralhamos UMA variável por vez nos dados de
-# teste e medimos quanto o AUC cai. Queda grande = o modelo depende dela.
+# Esta aqui é um EXPERIMENTO: uma variável por vez é embaralhada nos dados de
+# teste e mede-se quanto o AUC cai. Queda grande = o modelo depende dela.
 # Por ser agnóstica de modelo, é a única métrica de importância comparável
 # ENTRE os scripts 02-04 (Gini ≠ ganho ≠ Olden).
 # NOTA: a permutação atua nas variáveis BRUTAS (sexo, raca...), não nas

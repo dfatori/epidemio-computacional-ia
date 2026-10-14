@@ -40,10 +40,10 @@ dev.off()
 # ══════════════════════════════════════════════════════════════════════════════
 # 3. ÁRVORE PROFUNDA: DEMONSTRAÇÃO DE OVERFITTING
 # ══════════════════════════════════════════════════════════════════════════════
-# Removemos os limites de profundidade e de tamanho mínimo de nó.
+# Removidos os limites de profundidade e de tamanho mínimo de nó.
 # O algoritmo subdivide os dados até memorizá-los: folhas com pouquíssimas
 # observações, ajustadas ao RUÍDO do treino. O resultado é ilegível e
-# generaliza mal: ilustra por que controlamos tree_depth na prática.
+# generaliza mal: ilustra por que controlar tree_depth na prática.
 
 arvore_profunda <- rpart::rpart(
   has_pas ~ .,
@@ -66,10 +66,6 @@ cat(sprintf(
   acc_treino, acc_teste
 ))
 
-# Plotar os 1077 nós geraria uma mancha ilegível: e a ilegibilidade total
-# não ensina nada. Em vez disso, mostramos um RECORTE: os primeiros 5 níveis.
-# Como o rpart é guloso e determinístico, reajustar com maxdepth = 5 (mesmos
-# demais parâmetros) reproduz exatamente o topo da árvore profunda.
 arvore_zoom <- rpart::rpart(
   has_pas ~ .,
   data    = dados_treino,
@@ -97,7 +93,6 @@ dev.off()
 # ══════════════════════════════════════════════════════════════════════════════
 # 4. AVALIAÇÃO DA ÁRVORE RASA NO TESTE
 # ══════════════════════════════════════════════════════════════════════════════
-# Via tidymodels, para consistência com os demais scripts
 espec_arvore <- decision_tree(tree_depth = 3, min_n = 5, cost_complexity = 0.001) %>%
   set_engine("rpart") %>%
   set_mode("classification")
@@ -126,8 +121,6 @@ modelo_rf <- espec_rf %>%
   fit(has_pas ~ ., data = dados_treino)
 
 # 5.3 Avaliar no teste: ROC + AUC
-# Usamos predict(type="prob") igual aos outros scripts para comparação direta.
-# Este bloco de avaliação é idêntico ao do script 01 (repetição proposital).
 probs_teste_rf <- predict(modelo_rf, dados_teste, type = "prob") %>%
   bind_cols(dados_teste %>% 
               select(has_pas))
@@ -210,9 +203,9 @@ ggsave("output/02_random_forest/random_forest_importancia.png", plot = p_vip_rf,
 # ══════════════════════════════════════════════════════════════════════════════
 # Out-of-Bag (OOB): cada árvore é treinada em ~63% dos dados (bootstrap).
 # Os 37% restantes são usados como "teste embutido": sem tocar nos dados_teste.
-# À medida que adicionamos árvores, o erro OOB estabiliza: a partir de certo
-# ponto, mais árvores não melhoram o modelo: apenas custam mais tempo.
-# Esse gráfico mostra onde está esse ponto de estabilização.
+# Com mais árvores, o erro OOB estabiliza: a partir de certo ponto, mais
+# árvores não melhoram o modelo, apenas custam mais tempo.
+# O gráfico mostra onde está esse ponto de estabilização.
 
 n_trees_seq <- c(1, 5, 10, 25, 50, 75, 100, 150, 200, 300, 400, 500)
 
@@ -250,11 +243,6 @@ ggsave("output/02_random_forest/random_forest_oob_convergencia.png", plot = p_oo
 # ══════════════════════════════════════════════════════════════════════════════
 # 6. IMPORTÂNCIA POR PERMUTAÇÃO: MÉTODO AGNÓSTICO DE MODELO
 # ══════════════════════════════════════════════════════════════════════════════
-# A importância acima (impureza de Gini) ensina a MECÂNICA interna do RF.
-# Esta aqui é um EXPERIMENTO: embaralhamos UMA variável por vez nos dados de
-# teste e medimos quanto o AUC cai. Queda grande = o modelo depende dela.
-# Por ser agnóstica de modelo, é a única métrica de importância comparável
-# ENTRE os scripts 02-04 (Gini ≠ ganho ≠ Olden).
 
 # Função de predição: probabilidade do evento (has_pas = "Sim")
 pred_prob <- function(object, newdata) {

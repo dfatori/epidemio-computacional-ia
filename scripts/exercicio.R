@@ -206,14 +206,14 @@ receita <- recipe(has_pas ~ ., data = dados_treino) %>%
   step_dummy(all_nominal_predictors(), one_hot = FALSE) %>%
   step_normalize(all_numeric_predictors())
 
-# ── 6.1 Regressão Logística ──────────────────────────────────────────────────
+# ── 3.1 Regressão Logística ──────────────────────────────────────────────────
 modelo_lr <- workflow() %>%
   add_recipe(receita) %>%
   add_model(logistic_reg() %>% set_engine("glm") %>% set_mode("classification")) %>%
   fit(data = dados_treino)
 auc_lr_ex <- avalia(modelo_lr, "Regressão Logística", "logistica")
 
-# ── 6.2 Random Forest ────────────────────────────────────────────────────────
+# ── 3.2 Random Forest ────────────────────────────────────────────────────────
 set.seed(42)  # o bootstrap do RF é aleatório
 modelo_rf <- rand_forest(trees = 500, mtry = floor(sqrt(ncol(dados_treino) - 1))) %>%
   set_engine("ranger", importance = "impurity") %>%
@@ -221,9 +221,9 @@ modelo_rf <- rand_forest(trees = 500, mtry = floor(sqrt(ncol(dados_treino) - 1))
   fit(has_pas ~ ., data = dados_treino)
 auc_rf_ex <- avalia(modelo_rf, "Random Forest", "random_forest")
 
-# ── 6.3 Gradient Boosting (XGBoost) ──────────────────────────────────────────
-# No script 03, o nº de árvores vinha da validação cruzada do gbm; aqui
-# fixamos 300 stumps para manter o exercício enxuto
+# ── 3.3 Gradient Boosting (XGBoost) ──────────────────────────────────────────
+# No script 03, o nº de árvores vinha da validação cruzada do gbm; aqui,
+# 300 stumps fixos para manter o exercício enxuto
 set.seed(42)
 modelo_xgb <- workflow() %>%
   add_recipe(receita) %>%
@@ -232,7 +232,7 @@ modelo_xgb <- workflow() %>%
   fit(data = dados_treino)
 auc_gb_ex <- avalia(modelo_xgb, "Gradient Boosting (XGBoost)", "gradient_boosting")
 
-# ── 6.4 Rede Neural (MLP) ────────────────────────────────────────────────────
+# ── 3.4 Rede Neural (MLP) ────────────────────────────────────────────────────
 set.seed(42)
 modelo_nn <- workflow() %>%
   add_recipe(receita) %>%
@@ -242,10 +242,10 @@ modelo_nn <- workflow() %>%
 auc_nn_ex <- avalia(modelo_nn, "Rede Neural (MLP)", "rede_neural")
 
 # ── 4. Baseline da Análise 1 na MESMA amostra ────────────────────────────────
-# Para a tabela comparativa final, reajustamos os 4 modelos com os 9 preditores
-# originais: mesmas linhas, mesmo split. Assim o Δ de AUC é atribuível
-# exclusivamente às 12 variáveis extras, e o exercício fica autocontido
-# (não depende de ter rodado os scripts 01-04 antes).
+# Para a tabela comparativa final, os 4 modelos são reajustados com os 9
+# preditores originais: mesmas linhas, mesmo split. Assim o Δ de AUC é
+# atribuível exclusivamente às 12 variáveis extras, e o exercício fica
+# autocontido (não depende de ter rodado os scripts 01-04 antes).
 receita_base <- recipe(has_pas ~ ., data = dados_treino_base) %>%
   step_dummy(all_nominal_predictors(), one_hot = FALSE) %>%
   step_normalize(all_numeric_predictors())

@@ -14,7 +14,7 @@
 #   Converte fatores em variáveis indicadoras (0/1).
 #   Ex.: sexo vira "sexo_Feminino" (0 = Masculino, 1 = Feminino):
 #   o 1º nível do fator ("Masculino") vira a referência e não gera dummy.
-#   Com one_hot = FALSE usamos k-1 dummies (evita multicolinearidade perfeita).
+#   Com one_hot = FALSE, k-1 dummies (evita multicolinearidade perfeita).
 #
 # PASSO 2: step_normalize()
 #   Centraliza (média 0) e escala (dp 1) as variáveis numéricas.
@@ -72,12 +72,11 @@ predict(modelo_nn, dados_teste) %>%
 nn_nativo <- extract_fit_engine(modelo_nn)
 
 # Extrair os nomes reais das variáveis após o pré-processamento da receita.
-# (step_dummy cria sufixos como "sexo_Feminino"; queremos rótulos legíveis)
+# (step_dummy cria sufixos como "sexo_Feminino"; aqui viram rótulos legíveis)
 nomes_entrada <- extract_mold(modelo_nn)$predictors |> names()
 
 # Mapeamento técnico → PT-BR
-# Inclui tanto os labels em inglês (nhanesA original) quanto PT-BR (após fct_recode),
-# pois o resultado depende de quando setup.R foi rodado na sessão atual.
+# (inglês e PT-BR: o nome gerado depende de quando 00_config.R rodou na sessão)
 legenda <- c(
   # ── contínuas ───────────────────────────────
   "idade"                  = "Idade",
@@ -253,7 +252,7 @@ ggsave("output/04_rede_neural/mlp_importancia.png", plot = p_olden, width = 8, h
 # 10. IMPORTÂNCIA POR PERMUTAÇÃO: MÉTODO AGNÓSTICO DE MODELO
 # ══════════════════════════════════════════════════════════════════════════════
 # Diferente do Olden (que lê os pesos internos), este é um EXPERIMENTO:
-# embaralhamos UMA variável por vez nos dados de teste e medimos quanto o
+# uma variável por vez é embaralhada nos dados de teste e mede-se quanto o
 # AUC cai. Queda grande = o modelo depende dela.
 # Por ser agnóstica de modelo, é a única métrica de importância comparável
 # ENTRE os scripts 02-04 (Gini ≠ ganho ≠ Olden).
@@ -372,14 +371,14 @@ ggsave("output/04_rede_neural/mlp_roc.png", plot = p_roc, width = 7, height = 6,
 # 12. COMPARAÇÃO DE PROFUNDIDADE: 1 vs 2 CAMADAS OCULTAS
 # ══════════════════════════════════════════════════════════════════════════════
 # O engine "nnet" suporta apenas 1 camada oculta.
-# Para múltiplas camadas usamos "brulee" (torch), que aceita hidden_units
+# Para múltiplas camadas, o engine é "brulee" (torch), que aceita hidden_units
 # como vetor: c(4, 4) = duas camadas ocultas de 4 neurônios cada.
 
 # brulee carregado em 00_config.R
 
 # ── Especificações ─────────────────────────────────────────────────────────────
 # Mesma receita (receita) e mesmo split (dados_treino / dados_teste) das seções anteriores.
-# Mantemos penalty e epochs iguais para isolar o efeito da profundidade.
+# penalty e epochs iguais para isolar o efeito da profundidade.
 
 espec_1c <- mlp(hidden_units = 4,penalty = 0.01, epochs = 300) %>%
   set_engine("brulee") %>%

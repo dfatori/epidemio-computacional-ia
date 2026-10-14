@@ -1,6 +1,6 @@
 # ══════════════════════════════════════════════════════════════════════════════
 # NHANES 2021-2023 (ciclo L): Predicao de Hipertensao Arterial Sistemica (HAS)
-# # https://cran.r-project.org/web/packages/nhanesA/vignettes/Introducing_nhanesA.html
+# https://cran.r-project.org/web/packages/nhanesA/vignettes/Introducing_nhanesA.html
 # ══════════════════════════════════════════════════════════════════════════════
 
 # ── 0. Carrega pacotes ────────────────────────────────────────────────
@@ -224,12 +224,6 @@ dev.off()
 # ── 8. Banco ampliado: marcadores laboratoriais e comportamentais ─────────────
 # Mesma função de cache. Estas 12 variáveis extras entram no EXERCÍCIO e
 # definem a amostra comum das duas análises (ver seção 9).
-# NOTA: TRIGLY_L (triglicerídeos) ficou de fora DE PROPÓSITO: 61% de valores
-# faltantes (exame só existe no subgrupo de jejum do NHANES) custaria quase
-# metade da amostra. DPQ_L (depressão, PHQ-9) também ficou de fora: no ciclo L
-# o questionário não foi aplicado a 1.816 adultos e o score custaria 455
-# observações (4.399 → 3.944). Primeira decisão de qualquer análise: saber
-# quando uma variável não vale o custo.
 ghb_L    <- nhanes_cache("GHB_L",    "data/ghb_L.rds")    # HbA1c
 hdl_L    <- nhanes_cache("HDL_L",    "data/hdl_L.rds")    # HDL colesterol
 hscrp_L  <- nhanes_cache("HSCRP_L",  "data/hscrp_L.rds")  # PCR alta sensibilidade
@@ -240,21 +234,26 @@ huq_L    <- nhanes_cache("HUQ_L",    "data/huq_L.rds")    # Saúde autorrelatada
 
 nhanes_ext <- nhanes_cardio %>%
   left_join(
-    ghb_L    %>% select(SEQN, hba1c        = LBXGH),     # HbA1c (%)
+    ghb_L    %>% 
+    select(SEQN, hba1c        = LBXGH),     # HbA1c (%)
     by = "SEQN") %>%
   left_join(
-    hdl_L    %>% select(SEQN, hdl           = LBDHDD),   # HDL (mg/dL)
+    hdl_L    %>% 
+    select(SEQN, hdl           = LBDHDD),   # HDL (mg/dL)
     by = "SEQN") %>%
   left_join(
-    hscrp_L  %>% select(SEQN, pcr           = LBXHSCRP), # PCR alta sensib. (mg/L)
+    hscrp_L  %>% 
+    select(SEQN, pcr           = LBXHSCRP), # PCR alta sensib. (mg/L)
     by = "SEQN") %>%
   left_join(
-    biopro_L %>% select(SEQN,
+    biopro_L %>% 
+    select(SEQN,
                         ac_urico   = LBXSUA,  # Ácido úrico (mg/dL). No ciclo L: LBXSUA
                         creatinina = LBXSCR), # Creatinina sérica (mg/dL)
     by = "SEQN") %>%
   left_join(
-    alq_L %>% select(SEQN, alcool = ALQ130),  # Doses de álcool por dia (últimos 12 meses)
+    alq_L %>% 
+    select(SEQN, alcool = ALQ130),  # Doses de álcool por dia (últimos 12 meses)
     by = "SEQN") %>%
   left_join(
     # Ciclo L: a pergunta sobre ronco (SLQ030) foi REMOVIDA do questionário:
@@ -262,11 +261,13 @@ nhanes_ext <- nhanes_cardio %>%
     slq_L %>% select(SEQN, sono_horas = SLD012),  # Horas de sono por noite
     by = "SEQN") %>%
   left_join(
-    huq_L %>% select(SEQN, saude_geral = HUQ010), # Saúde geral ("Excellent"..."Poor")
+    huq_L %>% 
+    select(SEQN, saude_geral = HUQ010), # Saúde geral ("Excellent"..."Poor")
     by = "SEQN") %>%
   # Frequência cardíaca de repouso: 3ª medida de pulso oscilométrico
   left_join(
-    bpxo_L %>% select(SEQN, freq_cardiaca = BPXOPLS3),
+    bpxo_L %>% 
+    select(SEQN, freq_cardiaca = BPXOPLS3),
     by = "SEQN")
 
 # ── 8.1 Limpar e derivar variáveis novas ──────────────────────────────────────
@@ -297,11 +298,6 @@ nhanes_ext <- nhanes_ext %>%
 # A Análise 1 usa um subconjunto de COLUNAS sobre as MESMAS LINHAS e o MESMO
 # split: assim os AUCs dos scripts 01-04 e do exercicio.R diferem apenas pelo
 # número de preditores, nunca pela amostra.
-# drop_na() = análise de casos completos: simples e transparente para fins
-# didáticos, mas descarta observações e pode introduzir viés de seleção.
-# Em produção, considere imputação (ex.: step_impute_* do tidymodels).
-# NOTA: os pesos amostrais do NHANES são ignorados de propósito: aqui o
-# objetivo é modelagem preditiva, não estimativa populacional.
 vars_base <- c("idade", "sexo", "raca", "whr", "renda", "colesterol",
                "diabetes", "fumante", "sedentarismo")
 vars_ampliado <- c(vars_base,

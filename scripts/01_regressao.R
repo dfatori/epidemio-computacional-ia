@@ -14,9 +14,6 @@
 #
 #   P(Y=1) = 1 / (1 + e^(-(β0 + β1·x1 + β2·x2 + ...)))
 #
-# O resultado é sempre entre 0 e 1: ao contrário da regressão linear,
-# que poderia prever valores absurdos como P = -0.3 ou P = 1.7.
-#
 # Os coeficientes β são interpretados como LOG-ODDS:
 #   e^β = Odds Ratio (OR): quanto a chance de HAS muda por unidade do preditor.
 
@@ -75,7 +72,7 @@ modelo_lr <- wf_lr %>% fit(data = dados_treino)
 #   OR < 1 → reduz o risco
 #   OR = 1 → sem efeito
 #
-# ATENÇÃO: como aplicamos step_normalize(), os preditores contínuos foram
+# ATENÇÃO: com o step_normalize(), os preditores contínuos foram
 # padronizados (média 0, dp 1). O OR de idade, colesterol etc. é, portanto,
 # por +1 DESVIO-PADRÃO: não por unidade original (ano, mg/dL).
 #
@@ -129,11 +126,6 @@ ggsave("output/01_regressao/logistic_odds_ratios.png", plot = p_or,
 # ══════════════════════════════════════════════════════════════════════════════
 # 5. AVALIAÇÃO: CURVA ROC + AUC
 # ══════════════════════════════════════════════════════════════════════════════
-# Usamos ROC + AUC: mesma abordagem dos scripts seguintes, para comparação.
-# Este bloco de avaliação é IDÊNTICO nos scripts 01-04 (repetição proposital:
-# cada script é autocontido e a métrica comum permite comparar os modelos).
-# O evento positivo é has_pas = "Sim": como os níveis do fator são
-# c("Não", "Sim"), passamos event_level = "second" explicitamente.
 
 probs_teste <- predict(modelo_lr, dados_teste, type = "prob") %>%
   bind_cols(dados_teste %>% select(has_pas))
