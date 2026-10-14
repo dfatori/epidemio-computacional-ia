@@ -1,5 +1,5 @@
 # ══════════════════════════════════════════════════════════════════════════════
-# NHANES 2021-2023 — Árvore de Decisão e Random Forest para HAS
+# NHANES 2021-2023: Árvore de Decisão e Random Forest para HAS
 # Rode 00_config.R antes (ele cria dados, dados_treino e dados_teste)
 # ══════════════════════════════════════════════════════════════════════════════
 
@@ -13,7 +13,7 @@
 # 2. ÁRVORE DE DECISÃO SIMPLES (RASA)
 # ══════════════════════════════════════════════════════════════════════════════
 
-# 2.1 Árvore rasa — profundidade 3, sem poda (cp = -1)
+# 2.1 Árvore rasa: profundidade 3, sem poda (cp = -1)
 arvore_nativa <- rpart::rpart(
   has_pas ~ .,
   data    = dados_treino,
@@ -38,19 +38,19 @@ rpart.plot(
 dev.off()
 
 # ══════════════════════════════════════════════════════════════════════════════
-# 3. ÁRVORE PROFUNDA — DEMONSTRAÇÃO DE OVERFITTING
+# 3. ÁRVORE PROFUNDA: DEMONSTRAÇÃO DE OVERFITTING
 # ══════════════════════════════════════════════════════════════════════════════
 # Removemos os limites de profundidade e de tamanho mínimo de nó.
 # O algoritmo subdivide os dados até memorizá-los: folhas com pouquíssimas
 # observações, ajustadas ao RUÍDO do treino. O resultado é ilegível e
-# generaliza mal — ilustra por que controlamos tree_depth na prática.
+# generaliza mal: ilustra por que controlamos tree_depth na prática.
 
 arvore_profunda <- rpart::rpart(
   has_pas ~ .,
   data    = dados_treino,
   control = rpart::rpart.control(
     maxdepth = 30,  # sem limite real de profundidade
-    minsplit = 2,   # permite splits até grupos mínimos — memoriza o treino
+    minsplit = 2,   # permite splits até grupos mínimos: memoriza o treino
     cp = -1)
 )
 
@@ -58,15 +58,15 @@ cat("Nós na árvore rasa:   ", nrow(arvore_nativa$frame), "\n")
 cat("Nós na árvore profunda:", nrow(arvore_profunda$frame), "\n")
 
 # O overfitting em números: acurácia altíssima no TREINO, bem menor no TESTE.
-# Essa diferença treino–teste É a definição operacional de overfitting.
+# Essa diferença treino-teste É a definição operacional de overfitting.
 acc_treino <- mean(predict(arvore_profunda, dados_treino, type = "class") == dados_treino$has_pas)
 acc_teste  <- mean(predict(arvore_profunda, dados_teste,  type = "class") == dados_teste$has_pas)
 cat(sprintf(
-  "Árvore profunda — acurácia no TREINO: %.3f  |  no TESTE: %.3f  (queda = overfitting)\n",
+  "Árvore profunda: acurácia no TREINO: %.3f  |  no TESTE: %.3f  (queda = overfitting)\n",
   acc_treino, acc_teste
 ))
 
-# Plotar os 1077 nós geraria uma mancha ilegível — e a ilegibilidade total
+# Plotar os 1077 nós geraria uma mancha ilegível: e a ilegibilidade total
 # não ensina nada. Em vez disso, mostramos um RECORTE: os primeiros 5 níveis.
 # Como o rpart é guloso e determinístico, reajustar com maxdepth = 5 (mesmos
 # demais parâmetros) reproduz exatamente o topo da árvore profunda.
@@ -88,7 +88,7 @@ rpart.plot(
   ycompress     = FALSE,
   yesno         = 0,
   main          = sprintf(
-    "Árvore profunda — primeiros 5 níveis (a completa tem %d nós e acerta 100%% do treino)",
+    "Árvore profunda: primeiros 5 níveis (a completa tem %d nós e acerta 100%% do treino)",
     nrow(arvore_profunda$frame)
   )
 )
@@ -121,11 +121,11 @@ espec_rf <- rand_forest(
   set_mode("classification")
 
 # 5.2 Ajuste
-set.seed(42)  # reprodutibilidade — o bootstrap do RF é aleatório
+set.seed(42)  # reprodutibilidade: o bootstrap do RF é aleatório
 modelo_rf <- espec_rf %>%
   fit(has_pas ~ ., data = dados_treino)
 
-# 5.3 Avaliar no teste — ROC + AUC
+# 5.3 Avaliar no teste: ROC + AUC
 # Usamos predict(type="prob") igual aos outros scripts para comparação direta.
 # Este bloco de avaliação é idêntico ao do script 01 (repetição proposital).
 probs_teste_rf <- predict(modelo_rf, dados_teste, type = "prob") %>%
@@ -158,24 +158,21 @@ p_roc_rf <- roc_df_rf %>%
     "text",
     x     = 1 - ponto_otimo_rf$specificity + 0.03,
     y     = ponto_otimo_rf$sensitivity - 0.04,
-    label = sprintf("Limiar ótimo\n(Youden = %.2f)", max(roc_df_rf$sensitivity + roc_df_rf$specificity - 1, na.rm = TRUE)),
+    label = sprintf("Limiar ótimo\n(Youden = %s)", fmt_br(ponto_otimo_rf$youden, 2)),
     hjust = 0, size = 3.2, color = "#d73027"
   ) +
   annotate(
     "text",
     x = 0.72, y = 0.18,
-    label = paste0("AUC = ", round(auc_rf$.estimate, 3)),
+    label = paste0("AUC = ", fmt_br(auc_rf$.estimate)),
     size = 4.5, fontface = "bold", color = "#2166ac", hjust = 0
   ) +
   labs(
-    title   = "Curva ROC: Random Forest",
-    x       = "1 - Especificidade (taxa de falsos positivos)",
-    y       = "Sensibilidade (taxa de verdadeiros positivos)",
-    caption = paste0(
-      "AUC = ", round(auc_rf$.estimate, 3),
-      " | Diagonal pontilhada = modelo aleatório (AUC = 0,5)",
-      " | Ponto vermelho = limiar ótimo (Youden)"
-    )
+    title    = "Curva ROC: Random Forest",
+    subtitle = "Análise 1 (9 preditores): NHANES 2021-2023",
+    x        = "1 − Especificidade  (taxa de falsos positivos)",
+    y        = "Sensibilidade  (taxa de verdadeiros positivos)",
+    caption  = "Diagonal pontilhada = modelo aleatório (AUC = 0,5)  |  Ponto vermelho = limiar ótimo (Youden)"
   ) +
   theme_minimal(base_size = 12) +
   theme(plot.caption = element_text(color = "gray40", size = 9))
@@ -212,9 +209,9 @@ ggsave("output/02_random_forest/random_forest_importancia.png", plot = p_vip_rf,
 # 5.5 CONVERGÊNCIA DO ERRO OOB vs Nº DE ÁRVORES
 # ══════════════════════════════════════════════════════════════════════════════
 # Out-of-Bag (OOB): cada árvore é treinada em ~63% dos dados (bootstrap).
-# Os 37% restantes são usados como "teste embutido" — sem tocar nos dados_teste.
+# Os 37% restantes são usados como "teste embutido": sem tocar nos dados_teste.
 # À medida que adicionamos árvores, o erro OOB estabiliza: a partir de certo
-# ponto, mais árvores não melhoram o modelo — apenas custam mais tempo.
+# ponto, mais árvores não melhoram o modelo: apenas custam mais tempo.
 # Esse gráfico mostra onde está esse ponto de estabilização.
 
 n_trees_seq <- c(1, 5, 10, 25, 50, 75, 100, 150, 200, 300, 400, 500)
@@ -251,20 +248,20 @@ ggsave("output/02_random_forest/random_forest_oob_convergencia.png", plot = p_oo
        width = 8, height = 5, dpi = 150, bg = "white")
 
 # ══════════════════════════════════════════════════════════════════════════════
-# 6. IMPORTÂNCIA POR PERMUTAÇÃO — MÉTODO AGNÓSTICO DE MODELO
+# 6. IMPORTÂNCIA POR PERMUTAÇÃO: MÉTODO AGNÓSTICO DE MODELO
 # ══════════════════════════════════════════════════════════════════════════════
 # A importância acima (impureza de Gini) ensina a MECÂNICA interna do RF.
 # Esta aqui é um EXPERIMENTO: embaralhamos UMA variável por vez nos dados de
 # teste e medimos quanto o AUC cai. Queda grande = o modelo depende dela.
 # Por ser agnóstica de modelo, é a única métrica de importância comparável
-# ENTRE os scripts 02–04 (Gini ≠ ganho ≠ Olden).
+# ENTRE os scripts 02-04 (Gini ≠ ganho ≠ Olden).
 
 # Função de predição: probabilidade do evento (has_pas = "Sim")
 pred_prob <- function(object, newdata) {
   predict(object, newdata, type = "prob")$.pred_Sim
 }
 
-# AUC com evento = "Sim" (2º nível do fator) — mesma convenção das ROCs
+# AUC com evento = "Sim" (2º nível do fator): mesma convenção das ROCs
 auc_evento_sim <- function(truth, estimate) {
   roc_auc_vec(truth, estimate, event_level = "second")
 }

@@ -1,5 +1,5 @@
 # ══════════════════════════════════════════════════════════════════════════════
-# NHANES 2021-2023 — Regressão Logística para Predição de HAS (baseline)
+# NHANES 2021-2023: Regressão Logística para Predição de HAS (baseline)
 # Rode 00_config.R antes (ele cria dados, dados_treino e dados_teste)
 # ══════════════════════════════════════════════════════════════════════════════
 
@@ -14,11 +14,11 @@
 #
 #   P(Y=1) = 1 / (1 + e^(-(β0 + β1·x1 + β2·x2 + ...)))
 #
-# O resultado é sempre entre 0 e 1 — ao contrário da regressão linear,
+# O resultado é sempre entre 0 e 1: ao contrário da regressão linear,
 # que poderia prever valores absurdos como P = -0.3 ou P = 1.7.
 #
 # Os coeficientes β são interpretados como LOG-ODDS:
-#   e^β = Odds Ratio (OR) — quanto a chance de HAS muda por unidade do preditor.
+#   e^β = Odds Ratio (OR): quanto a chance de HAS muda por unidade do preditor.
 
 x_vals   <- seq(-6, 6, by = 0.05)
 log_vals <- 1 / (1 + exp(-x_vals))
@@ -29,7 +29,7 @@ plot(
   type = "l", lwd = 2.5, col = "#2166ac",
   xlab = "Combinação linear dos preditores  (β₀ + β₁x₁ + ...)",
   ylab = "P(HAS = Sim)",
-  main = "Função Logística — Transforma Score Linear em Probabilidade",
+  main = "Função Logística: Transforma Score Linear em Probabilidade",
   las  = 1, bty = "l", ylim = c(-0.05, 1.1)
 )
 abline(h = c(0, 0.5, 1), lty = 2, col = "gray70")
@@ -77,7 +77,7 @@ modelo_lr <- wf_lr %>% fit(data = dados_treino)
 #
 # ATENÇÃO: como aplicamos step_normalize(), os preditores contínuos foram
 # padronizados (média 0, dp 1). O OR de idade, colesterol etc. é, portanto,
-# por +1 DESVIO-PADRÃO — não por unidade original (ano, mg/dL).
+# por +1 DESVIO-PADRÃO: não por unidade original (ano, mg/dL).
 #
 # Intervalo de confiança: se o IC não cruza 1, o efeito é estatisticamente
 # significativo (equivalente ao p < 0.05 no modelo logístico).
@@ -114,7 +114,7 @@ p_or <- ggplot(coefs, aes(x = OR, y = reorder(term, OR))) +
   scale_color_manual(values = c("TRUE" = "#d73027", "FALSE" = "#2166ac"),
                      labels = c("TRUE" = "Aumenta risco", "FALSE" = "Reduz risco")) +
   labs(
-    title    = "Odds Ratios — Regressão Logística (NHANES 2021-2023)",
+    title    = "Odds Ratios: Regressão Logística (NHANES 2021-2023)",
     subtitle = "Linha vertical = OR 1 (sem efeito)  |  Barras = IC 95%",
     x        = "Razão de Chances (Odds Ratio)",
     y        = NULL,
@@ -129,8 +129,8 @@ ggsave("output/01_regressao/logistic_odds_ratios.png", plot = p_or,
 # ══════════════════════════════════════════════════════════════════════════════
 # 5. AVALIAÇÃO: CURVA ROC + AUC
 # ══════════════════════════════════════════════════════════════════════════════
-# Usamos ROC + AUC — mesma abordagem dos scripts seguintes, para comparação.
-# Este bloco de avaliação é IDÊNTICO nos scripts 01–04 (repetição proposital:
+# Usamos ROC + AUC: mesma abordagem dos scripts seguintes, para comparação.
+# Este bloco de avaliação é IDÊNTICO nos scripts 01-04 (repetição proposital:
 # cada script é autocontido e a métrica comum permite comparar os modelos).
 # O evento positivo é has_pas = "Sim": como os níveis do fator são
 # c("Não", "Sim"), passamos event_level = "second" explicitamente.
@@ -144,7 +144,7 @@ probs_roc <- probs_teste %>%
 auc_lr <- roc_auc(probs_roc, truth = has_pas, prob_evento, event_level = "second")
 cat("AUC da Regressão Logística:", round(auc_lr$.estimate, 3), "\n")
 
-# Ponto ótimo: critério de Youden — maximiza sensibilidade + especificidade
+# Ponto ótimo (critério de Youden): maximiza sensibilidade + especificidade
 # J = sens + spec - 1  →  equivalente a minimizar a distância ao canto (0,1)
 roc_df <- roc_curve(probs_roc, truth = has_pas, prob_evento, event_level = "second")
 ponto_otimo <- roc_df %>%
@@ -167,18 +167,21 @@ p_roc <- roc_df %>%
     "text",
     x     = 1 - ponto_otimo$specificity + 0.03,
     y     = ponto_otimo$sensitivity - 0.04,
-    label = sprintf("Limiar ótimo\n(Youden = %.2f)", max(roc_df$sensitivity + roc_df$specificity - 1, na.rm = TRUE)),
+    label = sprintf("Limiar ótimo\n(Youden = %s)", fmt_br(ponto_otimo$youden, 2)),
     hjust = 0, size = 3.2, color = "#d73027"
   ) +
+  annotate(
+    "text",
+    x = 0.72, y = 0.18,
+    label = paste0("AUC = ", fmt_br(auc_lr$.estimate)),
+    size = 4.5, fontface = "bold", color = "#2166ac", hjust = 0
+  ) +
   labs(
-    title   = "Curva ROC — Regressão Logística (NHANES 2021-2023)",
-    x       = "1 - Especificidade  (taxa de falsos positivos)",
-    y       = "Sensibilidade  (taxa de verdadeiros positivos)",
-    caption = paste0(
-      "AUC = ", round(auc_lr$.estimate, 3),
-      "  |  Diagonal pontilhada = modelo aleatório (AUC = 0,5)",
-      "  |  Ponto vermelho = limiar ótimo (Youden)"
-    )
+    title    = "Curva ROC: Regressão Logística",
+    subtitle = "Análise 1 (9 preditores): NHANES 2021-2023",
+    x        = "1 − Especificidade  (taxa de falsos positivos)",
+    y        = "Sensibilidade  (taxa de verdadeiros positivos)",
+    caption  = "Diagonal pontilhada = modelo aleatório (AUC = 0,5)  |  Ponto vermelho = limiar ótimo (Youden)"
   ) +
   theme_minimal(base_size = 12) +
   theme(plot.caption = element_text(color = "gray40", size = 9))

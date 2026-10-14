@@ -1,5 +1,5 @@
 # ══════════════════════════════════════════════════════════════════════════════
-# NHANES 2021-2023 — Rede Neural para Predição de HAS (foco didático)
+# NHANES 2021-2023: Rede Neural para Predição de HAS (foco didático)
 # Rode 00_config.R antes (ele cria dados, dados_treino e dados_teste)
 # ══════════════════════════════════════════════════════════════════════════════
 
@@ -10,13 +10,13 @@
 # dados, dados_treino e dados_teste preparados pelo 00_config.R
 
 # ── 2. Recipe: pré-processamento ──────────────────────────────────────────────
-# PASSO 1 — step_dummy():
+# PASSO 1: step_dummy()
 #   Converte fatores em variáveis indicadoras (0/1).
-#   Ex.: sexo vira "sexo_Feminino" (0 = Masculino, 1 = Feminino) —
+#   Ex.: sexo vira "sexo_Feminino" (0 = Masculino, 1 = Feminino):
 #   o 1º nível do fator ("Masculino") vira a referência e não gera dummy.
 #   Com one_hot = FALSE usamos k-1 dummies (evita multicolinearidade perfeita).
 #
-# PASSO 2 — step_normalize():
+# PASSO 2: step_normalize()
 #   Centraliza (média 0) e escala (dp 1) as variáveis numéricas.
 #   ESSENCIAL para redes neurais: sem isso variáveis em escalas grandes
 #   (ex.: colesterol ~200) dominam os pesos sobre variáveis pequenas (ex.: whr ~0,5).
@@ -28,14 +28,14 @@ receita <- recipe(has_pas ~ ., data = dados_treino) %>%
   step_normalize(all_numeric_predictors())
 
 # ── 3. Especificação do modelo ────────────────────────────────────────────────
-# mlp = Multi-Layer Perceptron — a arquitetura mais simples de rede neural.
+# mlp = Multi-Layer Perceptron: a arquitetura mais simples de rede neural.
 #
 # Arquitetura adotada (didática):
 #   Entrada → [camada oculta: 4 neurônios] → Saída (P(HAS = "Sim"))
 #
 # hidden_units : neurônios na camada oculta
 #                (4 é suficiente aqui; em produção, tunaria via cross-validation)
-# penalty      : regularização L2 (weight decay) — penaliza pesos grandes,
+# penalty      : regularização L2 (weight decay): penaliza pesos grandes,
 #                reduzindo overfitting
 # epochs       : quantas vezes o algoritmo percorre todo o treino
 
@@ -49,7 +49,7 @@ espec_nn <- mlp(
 
 # ── 4. Workflow: une receita + modelo ─────────────────────────────────────────
 # O workflow garante que a MESMA receita usada no treino seja aplicada
-# automaticamente ao fazer predict() — sem risco de vazamento de dados.
+# automaticamente ao fazer predict(): sem risco de vazamento de dados.
 
 wf_nn <- workflow() %>%
   add_recipe(receita) %>%
@@ -60,7 +60,7 @@ set.seed(42)
 modelo_nn <- wf_nn %>% fit(data = dados_treino)
 
 # ── 6. Avaliar no conjunto de teste ───────────────────────────────────────────
-# metrics() retorna acurácia e kappa — úteis como primeira olhada, mas a
+# metrics() retorna acurácia e kappa: úteis como primeira olhada, mas a
 # acurácia é enganosa com classes desbalanceadas (ver ROC na seção 11).
 predict(modelo_nn, dados_teste) %>%
   bind_cols(dados_teste %>% select(has_pas)) %>%
@@ -135,7 +135,7 @@ p_net <- as.ggplot(function() {
     cex_val    = 0.85,             # tamanho do texto dos rótulos
     bord_col   = "black",          # borda dos nós
     nid        = TRUE,             # NID: habilita cores e espessura por peso
-                                   # (FALSE desabilitaria cores E espessura — tudo cinza)
+                                   # (FALSE desabilitaria cores E espessura: tudo cinza)
     rel_rsc    = c(1, 6),          # [espessura mínima, máxima] das conexões
     var_labs   = TRUE,             # exibir nomes dos preditores
     pos_col    = "#2166ac",        # azul para pesos positivos
@@ -160,19 +160,19 @@ ggsave("output/04_rede_neural/mlp_estrutura.png", plot = p_net,
 #    provavelmente contribui POSITIVAMENTE para o risco de HAS.
 #
 # 2. Pesos grandes (linhas grossas) indicam que aquela conexão "importa mais"
-#    para o modelo — mas, ao contrário de coeficientes de regressão,
+#    para o modelo: mas, ao contrário de coeficientes de regressão,
 #    não têm interpretação direta de direção na camada oculta.
 #
 # 3. Para interpretar direção dos efeitos, prefira SHAP values ou PDP plots
-#    (disponíveis via {DALEXtra} ou {pdp}) — o gráfico da rede mostra
+#    (disponíveis via {DALEXtra} ou {pdp}): o gráfico da rede mostra
 #    ESTRUTURA, não causalidade.
 # ══════════════════════════════════════════════════════════════════════════════
 
 # ══════════════════════════════════════════════════════════════════════════════
-# 8. FUNÇÃO DE ATIVAÇÃO — SIGMOIDE
+# 8. FUNÇÃO DE ATIVAÇÃO: SIGMOIDE
 # ══════════════════════════════════════════════════════════════════════════════
 # Cada neurônio oculto aplica esta função à sua soma ponderada de entradas.
-# Ela "comprime" qualquer valor real para (0, 1) — funciona como um dimmer:
+# Ela "comprime" qualquer valor real para (0, 1), como um dimmer:
 # entradas muito negativas → saída ≈ 0 (neurônio inibido)
 # entradas muito positivas → saída ≈ 1 (neurônio ativado)
 
@@ -185,7 +185,7 @@ plot(
   type = "l", lwd  = 2.5, col  = "#2166ac",
   xlab = "Entrada líquida  z  (soma ponderada das conexões)",
   ylab = "Saída do neurônio  \u03c3(z)",
-  main = "Função de Ativação — Sigmoide (Logística)",
+  main = "Função de Ativação: Sigmoide (Logística)",
   las  = 1, bty  = "l", ylim = c(-0.05, 1.1)
 )
 abline(h = c(0, 0.5, 1), lty = 2, col = "gray70")
@@ -205,11 +205,11 @@ mtext(expression(sigma(z) == frac(1, 1 + e^{-z})),
 dev.off()
 
 # ══════════════════════════════════════════════════════════════════════════════
-# 9. IMPORTÂNCIA DAS VARIÁVEIS — MÉTODO OLDEN
+# 9. IMPORTÂNCIA DAS VARIÁVEIS: MÉTODO OLDEN
 # ══════════════════════════════════════════════════════════════════════════════
 # olden() percorre todos os caminhos da rede (entrada → oculta → saída)
 # multiplicando os pesos em cadeia e somando as contribuições por variável.
-# Preserva o SINAL — diferente de Garson(), que usa valores absolutos:
+# Preserva o SINAL: diferente de Garson(), que usa valores absolutos:
 #   • Barra positiva : variável aumenta a probabilidade de HAS
 #   • Barra negativa : variável reduz a probabilidade de HAS
 #
@@ -250,15 +250,15 @@ print(p_olden)
 ggsave("output/04_rede_neural/mlp_importancia.png", plot = p_olden, width = 8, height = 5, dpi = 150, bg = "white")
 
 # ══════════════════════════════════════════════════════════════════════════════
-# 10. IMPORTÂNCIA POR PERMUTAÇÃO — MÉTODO AGNÓSTICO DE MODELO
+# 10. IMPORTÂNCIA POR PERMUTAÇÃO: MÉTODO AGNÓSTICO DE MODELO
 # ══════════════════════════════════════════════════════════════════════════════
 # Diferente do Olden (que lê os pesos internos), este é um EXPERIMENTO:
 # embaralhamos UMA variável por vez nos dados de teste e medimos quanto o
 # AUC cai. Queda grande = o modelo depende dela.
 # Por ser agnóstica de modelo, é a única métrica de importância comparável
-# ENTRE os scripts 02–04 (Gini ≠ ganho ≠ Olden).
+# ENTRE os scripts 02-04 (Gini ≠ ganho ≠ Olden).
 # NOTA: a permutação atua nas variáveis BRUTAS (sexo, raca...), não nas
-# dummies da receita — por isso o mapa de rótulos aqui usa os nomes brutos.
+# dummies da receita: por isso o mapa de rótulos aqui usa os nomes brutos.
 
 pred_prob <- function(object, newdata) {
   predict(object, newdata, type = "prob")$.pred_Sim
@@ -321,7 +321,7 @@ probs_teste <- predict(modelo_nn, dados_teste, type = "prob") %>%
 probs_roc <- probs_teste %>%
   rename(prob_evento = .pred_Sim)   # probabilidade do evento: HAS = "Sim"
 
-# AUC numérico — evento = "Sim" (2º nível do fator, daí event_level = "second")
+# AUC numérico: evento = "Sim" (2º nível do fator, daí event_level = "second")
 auc_nn <- roc_auc(probs_roc, truth = has_pas, prob_evento, event_level = "second")
 cat("AUC da rede neural:", round(auc_nn$.estimate, 3), "\n")
 
@@ -347,23 +347,26 @@ p_roc <- roc_df %>%
     "text",
     x     = 1 - ponto_otimo$specificity + 0.03,
     y     = ponto_otimo$sensitivity - 0.04,
-    label = sprintf("Limiar ótimo\n(Youden = %.2f)", max(roc_df$sensitivity + roc_df$specificity - 1, na.rm = TRUE)),
+    label = sprintf("Limiar ótimo\n(Youden = %s)", fmt_br(ponto_otimo$youden, 2)),
     hjust = 0, size = 3.2, color = "#d73027"
   ) +
+  annotate(
+    "text",
+    x = 0.72, y = 0.18,
+    label = paste0("AUC = ", fmt_br(auc_nn$.estimate)),
+    size = 4.5, fontface = "bold", color = "#2166ac", hjust = 0
+  ) +
   labs(
-    title   = "Curva ROC: Rede Neural",
-    x       = "1 − Especificidade  (taxa de falsos positivos)",
-    y       = "Sensibilidade  (taxa de verdadeiros positivos)",
-    caption = paste0(
-      "AUC = ", round(auc_nn$.estimate, 3),
-      " | Diagonal pontilhada = modelo aleatório (AUC = 0,5)",
-      " | Ponto vermelho = limiar ótimo (Youden)"
-    )
+    title    = "Curva ROC: Rede Neural (MLP)",
+    subtitle = "Análise 1 (9 preditores): NHANES 2021-2023",
+    x        = "1 − Especificidade  (taxa de falsos positivos)",
+    y        = "Sensibilidade  (taxa de verdadeiros positivos)",
+    caption  = "Diagonal pontilhada = modelo aleatório (AUC = 0,5)  |  Ponto vermelho = limiar ótimo (Youden)"
   ) +
   theme_minimal(base_size = 12) +
   theme(plot.caption = element_text(color = "gray40", size = 9))
 print(p_roc)
-ggsave("output/04_rede_neural/mlp_roc.png", plot = p_roc, width = 7, height = 6, dpi = 150)
+ggsave("output/04_rede_neural/mlp_roc.png", plot = p_roc, width = 7, height = 6, dpi = 150, bg = "white")
 
 # ══════════════════════════════════════════════════════════════════════════════
 # 12. COMPARAÇÃO DE PROFUNDIDADE: 1 vs 2 CAMADAS OCULTAS
@@ -410,8 +413,8 @@ probs_2c <- get_probs(modelo_2c, dados_teste)
 
 auc_1c <- roc_auc(probs_1c, truth = has_pas, prob_evento, event_level = "second")$.estimate
 auc_2c <- roc_auc(probs_2c, truth = has_pas, prob_evento, event_level = "second")$.estimate
-cat("AUC — 1 camada oculta :", round(auc_1c, 3), "\n")
-cat("AUC — 2 camadas ocultas:", round(auc_2c, 3), "\n")
+cat("AUC (1 camada oculta):", round(auc_1c, 3), "\n")
+cat("AUC (2 camadas ocultas):", round(auc_2c, 3), "\n")
 
 # ── Curvas ROC sobrepostas ─────────────────────────────────────────────────────
 # Construir uma curva por modelo, marcar o AUC na legenda e sobrepor no mesmo eixo.

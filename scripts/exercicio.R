@@ -1,134 +1,62 @@
 # ══════════════════════════════════════════════════════════════════════════════
 # Execução completa do exercício
 # ══════════════════════════════════════════════════════════════════════════════
-# EXERCÍCIO: Banco de dados ampliado para predição de Hipertensão
+# EXERCÍCIO: Banco ampliado para predição de Hipertensão
 #
-# OBJETIVO: Expandir o conjunto de preditores do fluxo principal (9 variáveis)
-# para 22 variáveis, baixando tabelas adicionais do NHANES e incorporando
-# marcadores laboratoriais, comportamentais e sociais.
+# OBJETIVO: expandir o conjunto de preditores do fluxo principal (9 variáveis)
+# para 21 variáveis, incorporando marcadores laboratoriais, comportamentais
+# e sociais.
 #
-#   Este script é autocontido: a seção 0 roda o 00_config.R
-#   (pacotes, função de cache e banco de dados), então não é preciso rodar
-#   nada antes. Ele sobrescreve os objetos dados, dados_treino e
-#   dados_teste no ambiente — após rodar, os scripts 01–04 usarão
-#   automaticamente o conjunto escolhido.
+# AMOSTRA COMUM: o 00_config.R prepara os DOIS bancos sobre as mesmas
+# observações (casos completos nas 21 variáveis) e o MESMO split: portanto
+# qualquer diferença de AUC entre a Análise 1 e este exercício vem das 12
+# variáveis extras, nunca da amostra.
+#
+#   Este script é autocontido: a seção 0 roda o 00_config.R (pacotes, dados
+#   e os dois bancos), então não é preciso rodar nada antes. Ele sobrescreve
+#   os objetos dados, dados_treino e dados_teste: após rodar, os scripts
+#   01-04 usam o banco ampliado.
 #   Única exigência: rodar a partir da raiz do projeto (como os demais).
 #
-# COMPARABILIDADE: a referência são os resultados da Análise 1, já salvos
-# em output/ no repositório — não é preciso rodar o pipeline baseline.
-# O banco abaixo usa casos completos nas 22 variáveis (N = 3.944).
-#
 # TAREFA DO ALUNO:
-#   1. Rode este script — ele prepara o banco ampliado E roda os 4 modelos
-#      (01–04) automaticamente, terminando com a tabela de AUCs
-#   2. Compare com os resultados da Análise 1 (já salvos no repositório)
+#   1. Rode este script: ele roda os 4 modelos no banco ampliado e termina
+#      com a tabela de AUCs
+#   2. Compare com os resultados da Análise 1 (mesma amostra: comparação direta)
 #   3. Quais variáveis apareceram como mais importantes?
 #   4. O ganho de AUC justifica a complexidade extra?
 #   5. Qual modelo performa melhor? Segundo quais critérios?
 # ══════════════════════════════════════════════════════════════════════════════
 
-# ── 0. Configuração  ──────────────────────────────────────────────────────────
+# ── 0. Configuração ───────────────────────────────────────────────────────────
+# Mesmo motivo do rodar.R: em execução não-interativa (ex.: Rscript), os
+# print() dos gráficos criariam um Rplots.pdf na raiz: desviar para o nulo
+nao_interativo <- !interactive()
+if (nao_interativo) pdf(NULL)
+
 source("scripts/00_config.R")
 
-# ── 1. Baixar tabelas adicionais ──────────────────────────────────────────────
-# Mesma função de cache definida em 00_config.R
-# NOTA: TRIGLY_L (triglicerídeos) ficou de fora DE PROPÓSITO — 61% de valores
-# faltantes (exame só existe no subgrupo de jejum do NHANES) custaria quase
-# metade da amostra (3.944 → 2.187 obs). Primeira decisão de qualquer análise:
-# saber quando uma variável não vale o custo.
-ghb_L    <- nhanes_cache("GHB_L",    "data/ghb_L.rds")    # HbA1c
-hdl_L    <- nhanes_cache("HDL_L",    "data/hdl_L.rds")    # HDL colesterol
-hscrp_L  <- nhanes_cache("HSCRP_L",  "data/hscrp_L.rds")  # PCR alta sensibilidade
-biopro_L <- nhanes_cache("BIOPRO_L", "data/biopro_L.rds") # Bioquímica (ác. úrico, creatinina)
-alq_L    <- nhanes_cache("ALQ_L",    "data/alq_L.rds")    # Álcool
-slq_L    <- nhanes_cache("SLQ_L",    "data/slq_L.rds")    # Sono
-huq_L    <- nhanes_cache("HUQ_L",    "data/huq_L.rds")    # Saúde autorrelatada
-dpq_L    <- nhanes_cache("DPQ_L",    "data/dpq_L.rds")    # Depressão (PHQ-9)
+# ── 1. Trocar para o banco ampliado (mesmas linhas, 21 preditores) ────────────
+# Guarda o banco da Análise 1 (9 preditores): usado na tabela comparativa final
+dados_base        <- dados
+dados_treino_base <- dados_treino
+dados_teste_base  <- dados_teste
 
-# ── 2. Junta tabelas NHANES ─────────────────────────────────────────────────
-nhanes_ext <- nhanes_cardio %>%
-  left_join(
-    ghb_L    %>% select(SEQN, hba1c        = LBXGH),     # HbA1c (%)
-    by = "SEQN") %>%
-  left_join(
-    hdl_L    %>% select(SEQN, hdl           = LBDHDD),   # HDL (mg/dL)
-    by = "SEQN") %>%
-  left_join(
-    hscrp_L  %>% select(SEQN, pcr           = LBXHSCRP), # PCR alta sensib. (mg/L)
-    by = "SEQN") %>%
-  left_join(
-    biopro_L %>% select(SEQN,
-                        ac_urico   = LBXSUA,  # Ácido úrico (mg/dL) — no ciclo L: LBXSUA
-                        creatinina = LBXSCR), # Creatinina sérica (mg/dL)
-    by = "SEQN") %>%
-  left_join(
-    alq_L %>% select(SEQN, alcool = ALQ130),  # Doses de álcool por dia (últimos 12 meses)
-    by = "SEQN") %>%
-  left_join(
-    # Ciclo L: a pergunta sobre ronco (SLQ030) foi REMOVIDA do questionário —
-    # restam apenas as horas de sono
-    slq_L %>% select(SEQN, sono_horas = SLD012),  # Horas de sono por noite
-    by = "SEQN") %>%
-  left_join(
-    huq_L %>% select(SEQN, saude_geral = HUQ010), # Saúde geral ("Excellent"..."Poor")
-    by = "SEQN") %>%
-  left_join(
-    dpq_L %>% select(SEQN,
-                     dpq1 = DPQ010, dpq2 = DPQ020, dpq3 = DPQ030,
-                     dpq4 = DPQ040, dpq5 = DPQ050, dpq6 = DPQ060,
-                     dpq7 = DPQ070, dpq8 = DPQ080, dpq9 = DPQ090),
-    by = "SEQN")
+dados        <- dados_ampliado
+dados_treino <- dados_treino_ampliado
+dados_teste  <- dados_teste_ampliado
 
-# ── 3. Limpar e derivar variáveis novas ──────────────────────────────────────
-# Códigos de recusa/não sabe no NHANES: 777/999 (ALQ130), 7777/9999 (SLD012) etc.
-invalidos_num <- c(777, 999, 7777, 9999, 77777, 99999)
+cat(sprintf(
+  "Banco ampliado: %d obs × %d preditores (treino: %d | teste: %d) | mesma amostra da Análise 1\n\n",
+  nrow(dados), ncol(dados) - 1, nrow(dados_treino), nrow(dados_teste)
+))
 
-nhanes_ext <- nhanes_ext %>%
-  mutate(
-    # Álcool: pressuposto didático — NA em ALQ130 tratado como 0 (não bebe /
-    # não informou); em análise real, investigar o motivo da perda
-    alcool = ifelse(is.na(alcool) | alcool %in% invalidos_num, 0, alcool),
-
-    # Horas de sono: códigos inválidos → NA
-    sono_horas = ifelse(sono_horas %in% invalidos_num, NA, sono_horas),
-
-    # Saúde geral: colapsar em boa vs. ruim
-    # ATENÇÃO: no ciclo L os labels vêm com pontuação ("Excellent,", "Poor?" ...)
-    saude_geral = case_when(
-      as.character(saude_geral) %in% c("Excellent,", "Very good,", "Good,") ~ "Boa",
-      as.character(saude_geral) %in% c("Fair, or", "Poor?")                 ~ "Ruim",
-      TRUE ~ NA_character_
-    ),
-    saude_geral = factor(saude_geral, levels = c("Boa", "Ruim")),
-
-    # Score PHQ-9: soma dos 9 itens (0–3 cada; NA em qualquer item → NA no score)
-    # ATENÇÃO: o nhanesA traduz os itens DPQ para FATORES com labels
-    # ("Not at all", "Several days", ...) — as.numeric() retornaria o índice
-    # do nível (1–6), não o escore. É preciso mapear os labels explicitamente:
-    across(dpq1:dpq9, ~ case_when(
-      . == "Not at all"             ~ 0,
-      . == "Several days"           ~ 1,
-      . == "More than half the days" ~ 2,
-      . == "Nearly every day"       ~ 3,
-      TRUE ~ NA_real_  # "Refused", "Don't know"
-    )),
-    phq9 = rowSums(across(dpq1:dpq9), na.rm = FALSE)
-  ) %>%
-  select(-dpq1, -dpq2, -dpq3, -dpq4, -dpq5, -dpq6, -dpq7, -dpq8, -dpq9)
-
-# Frequência cardíaca de repouso: 3ª medida de pulso oscilométrico (BPXO_L)
-fc_raw <- nhanes_cache("BPXO_L", "data/bpxo_L.rds") %>%
-  select(SEQN, freq_cardiaca = BPXOPLS3)
-nhanes_ext <- nhanes_ext %>% left_join(fc_raw, by = "SEQN")
-
-# ── 4. Tabela descritiva das variáveis novas ──────────────────────────────────
-# Salva em output/exercicio/ (mesmo padrão do 00_config.R) — vira a
-# "Tabela da análise 2" referenciada no README
+# ── 2. Tabela descritiva das variáveis novas ──────────────────────────────────
+# Salva em output/exercicio/ (mesmo padrão da tabela da Análise 1)
 dir.create("output/exercicio", showWarnings = FALSE)
 
 tabela_desc_ampliada <- nhanes_ext %>%
   select(hba1c, hdl, pcr, ac_urico, creatinina,
-         alcool, sono_horas, saude_geral, phq9,
+         alcool, sono_horas, saude_geral,
          escolaridade, est_civil, imc, freq_cardiaca) %>%
   tbl_summary(
     missing = "ifany",
@@ -143,7 +71,6 @@ tabela_desc_ampliada <- nhanes_ext %>%
       alcool        ~ "Álcool (doses/dia)",
       sono_horas    ~ "Horas de sono/noite",
       saude_geral   ~ "Saúde geral autorrelatada",
-      phq9          ~ "Score PHQ-9 (depressão)",
       escolaridade  ~ "Escolaridade",
       est_civil     ~ "Estado civil",
       imc           ~ "IMC (kg/m²)",
@@ -155,13 +82,12 @@ tabela_desc_ampliada %>%
   as_gt() %>%
   gt::gtsave("output/exercicio/tabela_descritiva_ampliada.html")
 
-# PNG gerado nativamente (flextable + device png do R), sem depender de
-# navegador — o gt::gtsave em PNG exigiria Chrome via webshot2/chromote.
+# PNG via flextable (gráficos nativos do R, sem Chrome): mesmo método do 00_config.R
 ft_ampliada <- tabela_desc_ampliada %>%
   as_flex_table() %>%
   flextable::autofit()
 
-dm <- dim(ft_ampliada)  # dimensões em polegadas: o PNG sai no tamanho exato
+dm <- dim(ft_ampliada)
 
 png("output/exercicio/tabela_descritiva_ampliada.png",
     width = sum(dm$widths) * 300, height = sum(dm$heights) * 300, res = 300)
@@ -169,39 +95,11 @@ grid::grid.newpage()
 grid::grid.draw(flextable::gen_grob(ft_ampliada, fit = "auto"))
 dev.off()
 
-# ── 5. Preparar dados para modelagem (sobrescreve os objetos do 00_config.R) ──
-# ATENÇÃO: a partir daqui, dados/dados_treino/dados_teste contêm 22 preditores.
-# Os scripts 01–04 usarão este conjunto automaticamente.
-
-dados <- nhanes_ext %>%
-  select(
-    has_pas,
-    # ── preditores do baseline ────────────────────────────────────────────
-    idade, sexo, raca, whr, renda, colesterol, diabetes, fumante, sedentarismo,
-    # ── variáveis já no setup, não usadas no baseline ─────────────────────
-    escolaridade, est_civil, imc, freq_cardiaca,
-    # ── marcadores laboratoriais novos ────────────────────────────────────
-    hba1c, hdl, pcr, ac_urico, creatinina,
-    # ── comportamentais / contextuais ─────────────────────────────────────
-    alcool, sono_horas, saude_geral, phq9
-  ) %>%
-  drop_na()
-
-set.seed(42)
-split        <- initial_split(dados, prop = 0.75, strata = has_pas)
-dados_treino <- training(split)
-dados_teste  <- testing(split)
-
-cat(sprintf(
-  "Banco ampliado pronto: %d obs × %d preditores (treino: %d | teste: %d)\n\n",
-  nrow(dados), ncol(dados) - 1, nrow(dados_treino), nrow(dados_teste)
-))
-
 # ══════════════════════════════════════════════════════════════════════════════
-# 6. MODELOS — versões condensadas dos scripts 01–04
+# 3. MODELOS: versões condensadas dos scripts 01-04
 # ══════════════════════════════════════════════════════════════════════════════
 # Mesmos 4 modelos da Análise 1, sem os gráficos de conceito (que já foram
-# vistos): aqui importa só a comparação — AUC, ROC e importância das variáveis.
+# vistos): aqui importa só a comparação: AUC, ROC e importância das variáveis.
 # Tudo é salvo em output/exercicio/: os resultados da Análise 1 ficam intactos.
 
 # ── Funções auxiliares do bloco de avaliação (usadas pelos 4 modelos) ───────
@@ -210,12 +108,12 @@ pred_prob <- function(object, newdata) {
   predict(object, newdata, type = "prob")$.pred_Sim
 }
 
-# AUC com evento = "Sim" (2º nível do fator) — mesma convenção dos scripts 01–04
+# AUC com evento = "Sim" (2º nível do fator): mesma convenção dos scripts 01-04
 auc_evento_sim <- function(truth, estimate) {
   roc_auc_vec(truth, estimate, event_level = "second")
 }
 
-# Rótulos PT-BR para os 22 preditores (gráficos de importância)
+# Rótulos PT-BR para os 21 preditores (gráficos de importância)
 rotulos <- c(
   "idade" = "Idade", "sexo" = "Sexo", "raca" = "Raça/Etnia",
   "whr" = "Razão cintura/estatura", "renda" = "Renda",
@@ -226,11 +124,11 @@ rotulos <- c(
   "hba1c" = "HbA1c", "hdl" = "HDL", "pcr" = "PCR",
   "ac_urico" = "Ácido úrico", "creatinina" = "Creatinina",
   "alcool" = "Álcool (doses/dia)", "sono_horas" = "Sono (h/noite)",
-  "saude_geral" = "Saúde autorrelatada", "phq9" = "PHQ-9 (depressão)"
+  "saude_geral" = "Saúde autorrelatada"
 )
 
 # avalia(): AUC + curva ROC + importância por permutação de um modelo ajustado.
-# É a condensação dos blocos de avaliação dos scripts 01–04 — repare que o
+# É a condensação dos blocos de avaliação dos scripts 01-04: repare que o
 # MESMO código serve para os 4 modelos: essa uniformidade é o tidymodels.
 avalia <- function(modelo, nome, arquivo) {
   # AUC + ROC no conjunto de teste
@@ -238,12 +136,44 @@ avalia <- function(modelo, nome, arquivo) {
     bind_cols(dados_teste %>% select(has_pas)) %>%
     rename(prob_evento = .pred_Sim)
   auc <- roc_auc(probs, truth = has_pas, prob_evento, event_level = "second")
-  cat(sprintf("AUC — %s: %.3f\n", nome, auc$.estimate))
+  cat(sprintf("AUC (%s): %.3f\n", nome, auc$.estimate))
 
-  p_roc <- roc_curve(probs, truth = has_pas, prob_evento, event_level = "second") %>%
+  # Curva ROC no mesmo padrão visual dos scripts 01-04:
+  # ponto de Youden em vermelho + AUC anotado dentro da figura
+  roc_df <- roc_curve(probs, truth = has_pas, prob_evento, event_level = "second")
+  ponto_otimo <- roc_df %>%
+    mutate(youden = sensitivity + specificity - 1) %>%
+    slice_max(youden, n = 1)
+
+  p_roc <- roc_df %>%
     autoplot() +
-    labs(title = paste0("Curva ROC — ", nome, " (banco ampliado)")) +
-    theme_minimal(base_size = 12)
+    geom_point(
+      data  = ponto_otimo,
+      aes(x = 1 - specificity, y = sensitivity),
+      color = "#d73027", size = 3.5
+    ) +
+    annotate(
+      "text",
+      x     = 1 - ponto_otimo$specificity + 0.03,
+      y     = ponto_otimo$sensitivity - 0.04,
+      label = sprintf("Limiar ótimo\n(Youden = %s)", fmt_br(ponto_otimo$youden, 2)),
+      hjust = 0, size = 3.2, color = "#d73027"
+    ) +
+    annotate(
+      "text",
+      x = 0.72, y = 0.18,
+      label = paste0("AUC = ", fmt_br(auc$.estimate)),
+      size = 4.5, fontface = "bold", color = "#2166ac", hjust = 0
+    ) +
+    labs(
+      title    = paste0("Curva ROC: ", nome),
+      subtitle = "Banco ampliado (21 preditores): NHANES 2021-2023",
+      x        = "1 − Especificidade  (taxa de falsos positivos)",
+      y        = "Sensibilidade  (taxa de verdadeiros positivos)",
+      caption  = "Diagonal pontilhada = modelo aleatório (AUC = 0,5)  |  Ponto vermelho = limiar ótimo (Youden)"
+    ) +
+    theme_minimal(base_size = 12) +
+    theme(plot.caption = element_text(color = "gray40", size = 9))
   ggsave(file.path("output/exercicio", paste0(arquivo, "_roc.png")), p_roc,
          width = 7, height = 6, dpi = 150, bg = "white")
 
@@ -262,7 +192,7 @@ avalia <- function(modelo, nome, arquivo) {
 
   p_imp <- ggplot(imp, aes(x = Importance, y = reorder(Variable, Importance))) +
     geom_col(fill = "#4dac26", color = "white") +
-    labs(title = paste0("Importância por permutação — ", nome),
+    labs(title = paste0("Importância por permutação: ", nome),
          x = "Queda de AUC", y = NULL) +
     theme_minimal(base_size = 12)
   ggsave(file.path("output/exercicio", paste0(arquivo, "_importancia.png")), p_imp,
@@ -271,7 +201,7 @@ avalia <- function(modelo, nome, arquivo) {
   invisible(auc$.estimate)
 }
 
-# Receita única (mesma dos scripts 01–04): dummies + normalização
+# Receita única (mesma dos scripts 01-04): dummies + normalização
 receita <- recipe(has_pas ~ ., data = dados_treino) %>%
   step_dummy(all_nominal_predictors(), one_hot = FALSE) %>%
   step_normalize(all_numeric_predictors())
@@ -300,7 +230,7 @@ modelo_xgb <- workflow() %>%
   add_model(boost_tree(trees = 300, tree_depth = 1, learn_rate = 0.05) %>%
               set_engine("xgboost") %>% set_mode("classification")) %>%
   fit(data = dados_treino)
-auc_gb_ex <- avalia(modelo_xgb, "Gradient Boosting", "gradient_boosting")
+auc_gb_ex <- avalia(modelo_xgb, "Gradient Boosting (XGBoost)", "gradient_boosting")
 
 # ── 6.4 Rede Neural (MLP) ────────────────────────────────────────────────────
 set.seed(42)
@@ -309,18 +239,124 @@ modelo_nn <- workflow() %>%
   add_model(mlp(hidden_units = 4, penalty = 0.01, epochs = 300) %>%
               set_engine("nnet") %>% set_mode("classification")) %>%
   fit(data = dados_treino)
-auc_nn_ex <- avalia(modelo_nn, "Rede Neural", "rede_neural")
+auc_nn_ex <- avalia(modelo_nn, "Rede Neural (MLP)", "rede_neural")
 
-# ── 7. Resumo: AUCs do banco ampliado ────────────────────────────────────────
-# Compare com os resultados da Análise 1 (banco baseline), salvos em output/
-cat("\n══ Resumo — AUCs do banco ampliado ════════════════════════════════════\n")
+# ── 4. Baseline da Análise 1 na MESMA amostra ────────────────────────────────
+# Para a tabela comparativa final, reajustamos os 4 modelos com os 9 preditores
+# originais: mesmas linhas, mesmo split. Assim o Δ de AUC é atribuível
+# exclusivamente às 12 variáveis extras, e o exercício fica autocontido
+# (não depende de ter rodado os scripts 01-04 antes).
+receita_base <- recipe(has_pas ~ ., data = dados_treino_base) %>%
+  step_dummy(all_nominal_predictors(), one_hot = FALSE) %>%
+  step_normalize(all_numeric_predictors())
+
+set.seed(42)
+mod_lr_base <- workflow() %>%
+  add_recipe(receita_base) %>%
+  add_model(logistic_reg() %>% set_engine("glm") %>% set_mode("classification")) %>%
+  fit(data = dados_treino_base)
+
+set.seed(42)
+mod_rf_base <- rand_forest(trees = 500, mtry = floor(sqrt(ncol(dados_treino_base) - 1))) %>%
+  set_engine("ranger", importance = "impurity") %>%
+  set_mode("classification") %>%
+  fit(has_pas ~ ., data = dados_treino_base)
+
+set.seed(42)
+mod_xgb_base <- workflow() %>%
+  add_recipe(receita_base) %>%
+  add_model(boost_tree(trees = 300, tree_depth = 1, learn_rate = 0.05) %>%
+              set_engine("xgboost") %>% set_mode("classification")) %>%
+  fit(data = dados_treino_base)
+
+set.seed(42)
+mod_nn_base <- workflow() %>%
+  add_recipe(receita_base) %>%
+  add_model(mlp(hidden_units = 4, penalty = 0.01, epochs = 300) %>%
+              set_engine("nnet") %>% set_mode("classification")) %>%
+  fit(data = dados_treino_base)
+
+auc_base <- c(
+  auc_evento_sim(dados_teste_base$has_pas, pred_prob(mod_lr_base,  dados_teste_base)),
+  auc_evento_sim(dados_teste_base$has_pas, pred_prob(mod_rf_base,  dados_teste_base)),
+  auc_evento_sim(dados_teste_base$has_pas, pred_prob(mod_xgb_base, dados_teste_base)),
+  auc_evento_sim(dados_teste_base$has_pas, pred_prob(mod_nn_base,  dados_teste_base))
+)
+
+# ── 5. Tabela comparativa final ──────────────────────────────────────────────
+# Análise 1 × Exercício na mesma amostra: o Δ é só das 12 variáveis extras.
+# A versão formatada (HTML/PNG) fica commitada no repositório para consulta
+# de quem não conseguir rodar o pipeline.
+cat("\n══ Resumo: Análise 1 × Exercício (mesma amostra) ═══════════════════════\n")
 resumo_auc <- data.frame(
   Modelo = c("Regressão Logística", "Random Forest",
              "Gradient Boosting (XGBoost)", "Rede Neural (MLP)"),
-  AUC    = c(auc_lr_ex, auc_rf_ex, auc_gb_ex, auc_nn_ex)
-)
-print(resumo_auc %>% arrange(desc(AUC)))
-cat("\nGráficos salvos em output/exercicio/ — compare com os da Análise 1.\n")
+  AUC_Analise1  = auc_base,
+  AUC_Exercicio = c(auc_lr_ex, auc_rf_ex, auc_gb_ex, auc_nn_ex)
+) %>%
+  mutate(Ganho = AUC_Exercicio - AUC_Analise1) %>%
+  arrange(desc(AUC_Exercicio))
+
+print(resumo_auc)
+
+tab_comp <- resumo_auc %>%
+  gt::gt() %>%
+  gt::tab_header(
+    title    = "Predição de hipertensão (PAS ≥ 140 mmHg): Análise 1 × Exercício",
+    subtitle = sprintf(
+      "AUC no conjunto de teste (n = %s)  |  mesma amostra (N = %s) e mesmo split  |  NHANES 2021-2023",
+      format(nrow(dados_teste), big.mark = ".", decimal.mark = ","),
+      format(nrow(dados),       big.mark = ".", decimal.mark = ",")
+    )
+  ) %>%
+  gt::cols_label(
+    Modelo        = "Modelo",
+    AUC_Analise1  = "Análise 1 (9 preditores)",
+    AUC_Exercicio = "Exercício (21 preditores)",
+    Ganho         = "Ganho (Δ AUC)"
+  ) %>%
+  gt::fmt_number(columns = c(AUC_Analise1, AUC_Exercicio), decimals = 3, dec_mark = ",", sep_mark = ".") %>%
+  gt::fmt_number(columns = Ganho, decimals = 3, dec_mark = ",", sep_mark = ".", force_sign = TRUE)
+
+tab_comp %>% gt::gtsave("output/exercicio/comparacao_modelos.html")
+
+# PNG da tabela comparativa via flextable (mesmo método das demais tabelas):
+# gráficos nativos do R, sem depender de navegador
+tab_comp_ft <- resumo_auc %>%
+  mutate(
+    AUC_Analise1  = fmt_br(AUC_Analise1),
+    AUC_Exercicio = fmt_br(AUC_Exercicio),
+    Ganho         = sub(".", ",", sprintf("%+.3f", Ganho), fixed = TRUE)
+  ) %>%
+  flextable::flextable() %>%
+  flextable::set_header_labels(
+    Modelo        = "Modelo",
+    AUC_Analise1  = "Análise 1 (9 preditores)",
+    AUC_Exercicio = "Exercício (21 preditores)",
+    Ganho         = "Ganho (Δ AUC)"
+  ) %>%
+  flextable::add_header_lines(values = c(
+    "Predição de hipertensão (PAS ≥ 140 mmHg): Análise 1 × Exercício",
+    sprintf(
+      "AUC no conjunto de teste (n = %s) | mesma amostra (N = %s) e mesmo split | NHANES 2021-2023",
+      format(nrow(dados_teste), big.mark = ".", decimal.mark = ","),
+      format(nrow(dados),       big.mark = ".", decimal.mark = ",")
+    )
+  )) %>%
+  flextable::bold(i = 1, part = "header") %>%
+  flextable::autofit()
+
+dm <- dim(tab_comp_ft)
+
+png("output/exercicio/comparacao_modelos.png",
+    width = sum(dm$widths) * 300, height = sum(dm$heights) * 300, res = 300)
+grid::grid.newpage()
+grid::grid.draw(flextable::gen_grob(tab_comp_ft, fit = "auto"))
+dev.off()
+
+cat("\nGráficos em output/exercicio/  |  Tabela comparativa: output/exercicio/comparacao_modelos.html\n")
+
+if (nao_interativo) dev.off()  # fecha o dispositivo nulo aberto no início
 
 # ══════════════════════════════════════════════════════════════════════════════
 # fim do script ────────────────────────────────────────────────────────────────

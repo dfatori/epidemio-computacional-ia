@@ -1,6 +1,6 @@
 
 # ══════════════════════════════════════════════════════════════════════════════
-# NHANES 2021-2023 — Gradient Boosting para Predição de HAS (foco didático)
+# NHANES 2021-2023: Gradient Boosting para Predição de HAS (foco didático)
 # Rode 00_config.R antes (ele cria dados, dados_treino e dados_teste)
 # ══════════════════════════════════════════════════════════════════════════════
 
@@ -10,11 +10,11 @@
 # ── 1. Dados ─────────────────────────────────────────────────────────────────
 
 # ══════════════════════════════════════════════════════════════════════════════
-# 2. CONCEITO CENTRAL: O "APRENDIZ FRACO" — STUMP (PROFUNDIDADE 1)
+# 2. CONCEITO CENTRAL: O "APRENDIZ FRACO" (STUMP, PROFUNDIDADE 1)
 # ══════════════════════════════════════════════════════════════════════════════
 # Um stump é uma árvore com apenas 1 split: divide os dados em dois grupos
 # usando UMA variável e UM ponto de corte.
-# Sozinho, é um preditor muito fraco — acerta pouco mais que o acaso.
+# Sozinho, é um preditor muito fraco: acerta pouco mais que o acaso.
 # O Gradient Boosting usa centenas desses stumps em sequência,
 # cada um corrigindo os erros do anterior. A força vem da soma, não do indivíduo.
 
@@ -25,7 +25,7 @@
 #   cv.folds           → cross-validation interna para detectar o n ótimo de árvores
 
 # gbm() exige desfecho numérico (0/1) para distribuição "bernoulli"
-# Mantemos os preditores como fator — gbm aceita fator mas não character
+# Mantemos os preditores como fator: gbm aceita fator mas não character
 treino_gbm <- dados_treino %>%
   mutate(
     has_pas_num = as.integer(has_pas == "Sim")
@@ -45,7 +45,7 @@ rpart.plot(
   fallen.leaves = TRUE,
   box.palette   = "BuGn",
   roundint      = FALSE,
-  main          = "Aprendiz fraco: stump — árvore com um único split"
+  main          = "Aprendiz fraco (stump): árvore com um único split"
 )
 dev.off()
 
@@ -58,7 +58,7 @@ set.seed(42)
 modelo_gbm <- gbm(
   has_pas_num ~ . - has_pas,
   data             = treino_gbm,
-  distribution     = "bernoulli",   # log-loss — adequada para classificação binária
+  distribution     = "bernoulli",   # log-loss: adequada para classificação binária
   n.trees          = 500,           # máximo de stumps a treinar
   interaction.depth = 1,            # STUMP: 1 split por árvore
   shrinkage        = 0.05,          # learning rate (menor = mais conservador, precisa mais árvores)
@@ -73,18 +73,18 @@ modelo_gbm <- gbm(
 # Este gráfico é a visualização central do Gradient Boosting:
 # mostra como o ERRO CAI a cada nova árvore adicionada.
 #
-# Eixo Y — Desvio de Bernoulli (log-loss):
+# Eixo Y: Desvio de Bernoulli (log-loss):
 #   Cada observação recebe uma probabilidade predita p^ entre 0 e 1.
 #   O desvio mede o quão errada foi essa probabilidade usando o log:
 #     -2 * [ y * log(p^) + (1-y) * log(1 - p^) ]
 #   O log penaliza confiança errada severamente: prever 1% para quem de fato
 #   tem HAS gera desvio alto; prever 49% errado gera desvio pequeno.
 #   O valor no gráfico é a média desse desvio sobre todas as observações.
-#   Não tem interpretação direta em unidades naturais — importa a tendência.
+#   Não tem interpretação direta em unidades naturais: importa a tendência.
 #
 # Duas linhas são exibidas:
-#   • Treino (preto): erro no conjunto de treino — sempre cai com mais árvores
-#   • CV (verde):     erro na cross-validation — cai até certo ponto e estabiliza
+#   • Treino (preto): erro no conjunto de treino: sempre cai com mais árvores
+#   • CV (verde):     erro na cross-validation: cai até certo ponto e estabiliza
 #
 # O n ótimo de árvores é onde a curva de CV é mínima (linha vertical azul).
 # Adicionar mais árvores além desse ponto = overfitting.
@@ -93,7 +93,7 @@ modelo_gbm <- gbm(
 n_otimo <- gbm.perf(modelo_gbm, method = "cv", plot.it = FALSE)
 
 # Em vez do gráfico pronto do gbm (labels em inglês), extraímos os erros
-# e montamos o ggplot — mesmo padrão visual dos demais gráficos do projeto
+# e montamos o ggplot: mesmo padrão visual dos demais gráficos do projeto
 curva_long <- data.frame(
   arvores = rep(seq_along(modelo_gbm$cv.error), 2),
   erro    = c(modelo_gbm$train.error, modelo_gbm$cv.error),
@@ -111,7 +111,7 @@ p_curva <- ggplot(curva_long, aes(x = arvores, y = erro, color = serie)) +
   scale_color_manual(values = c("Treino" = "black", "Validação cruzada" = "#4dac26")) +
   labs(
     title    = "Curva de Aprendizado: Gradient Boosting",
-    subtitle = paste0("Taxa de aprendizado: 0.05 | Profundidade: 1 (stumps) |  ",
+    subtitle = paste0("Taxa de aprendizado: 0.05  |  Profundidade: 1 (stumps)  |  ",
                       "n ótimo de árvores por validação cruzada: ", n_otimo),
     x        = "Número de árvores (iterações)",
     y        = "Desvio de Bernoulli (log-loss)",
@@ -128,14 +128,14 @@ ggsave("output/03_gradient_boosting/gradient_boosting_curva_aprendizado.png", pl
 # ══════════════════════════════════════════════════════════════════════════════
 # O que muda a cada nova árvore adicionada?
 # Usamos predict(..., n.trees = k) para obter a predição do modelo com apenas
-# k árvores — e comparamos como a separação entre classes melhora.
+# k árvores: e comparamos como a separação entre classes melhora.
 #
 # Cada painel mostra a distribuição das probabilidades preditas de HAS,
 # separada por desfecho real (Sim / Não).
-# • Com poucas árvores: distribuições sobrepostas — modelo confuso
-# • Com mais árvores:   distribuições se separam — modelo aprende
+# • Com poucas árvores: distribuições sobrepostas: modelo confuso
+# • Com mais árvores:   distribuições se separam: modelo aprende
 
-# gbm() aceita fator nos preditores — não converter para character
+# gbm() aceita fator nos preditores: não converter para character
 teste_gbm <- dados_teste
 
 # sort(unique()) evita duplicatas se n_otimo for 1, 10 ou 50
@@ -146,7 +146,7 @@ evol_df <- purrr::map_dfr(iteracoes, function(k) {
   data.frame(
     prob    = prob,
     has_pas = dados_teste$has_pas,
-    # factor com levels ordenados — sem isso, "Árvores: 250" viria antes de "Árvores: 50"
+    # factor com levels ordenados: sem isso, "Árvores: 250" viria antes de "Árvores: 50"
     iter    = factor(paste0("Árvores: ", k), levels = paste0("Árvores: ", iteracoes))
   )
 })
@@ -216,7 +216,7 @@ p_lr <- ggplot(erros_lr, aes(x = arvore, y = erro, color = rotulo)) +
   labs(
     title  = "Efeito da taxa de aprendizado",
     x      = "Número de árvores",
-    y      = "Erro (log-loss), validação cruzada (5-fold)",
+    y      = "Erro (log-loss): validação cruzada (5-fold)",
     color  = NULL
   ) +
   theme_minimal(base_size = 13) +
@@ -230,7 +230,7 @@ ggsave("output/03_gradient_boosting/gradient_boosting_learning_rate.png", plot =
 # ══════════════════════════════════════════════════════════════════════════════
 # Agora usamos o tidymodels (padrão do projeto) com XGBoost como engine.
 # XGBoost é Gradient Boosting com regularização L1/L2 e otimização de segunda
-# ordem (hessiana) — mais robusto e rápido que gbm para dados grandes.
+# ordem (hessiana): mais robusto e rápido que gbm para dados grandes.
 
 # 5.1 Recipe
 # step_dummy: converte fatores em dummies (XGBoost aceita numérico)
@@ -247,7 +247,7 @@ receita_xgb <- recipe(has_pas ~ ., data = dados_treino) %>%
 #
 # Nota: com apenas 9 preditores (vários binários), a regressão logística já
 # captura quase todo o sinal disponível. O XGBoost com stumps acompanha esse
-# resultado — o ganho pequeno sobre o baseline É o resultado correto para estes dados.
+# resultado: o ganho pequeno sobre o baseline É o resultado correto para estes dados.
 espec_xgb <- boost_tree(
   trees      = n_otimo,
   tree_depth = 1,
@@ -267,7 +267,7 @@ modelo_xgb <- wf_xgb %>% fit(data = dados_treino)
 
 # 5.5 Avaliar no teste
 # Acurácia é enganosa com classes desbalanceadas. Usamos ROC + AUC como
-# métrica principal — igual aos demais scripts (bloco idêntico, repetição
+# métrica principal: igual aos demais scripts (bloco idêntico, repetição
 # proposital para manter cada script autocontido).
 #   AUC = 0.5 → modelo aleatório (inútil)
 #   AUC = 1.0 → modelo perfeito
@@ -302,24 +302,21 @@ p_roc <- roc_df %>%
     "text",
     x     = 1 - ponto_otimo$specificity + 0.03,
     y     = ponto_otimo$sensitivity - 0.04,
-    label = sprintf("Limiar ótimo\n(Youden = %.2f)", max(roc_df$sensitivity + roc_df$specificity - 1, na.rm = TRUE)),
+    label = sprintf("Limiar ótimo\n(Youden = %s)", fmt_br(ponto_otimo$youden, 2)),
     hjust = 0, size = 3.2, color = "#d73027"
   ) +
   annotate(
     "text",
     x = 0.72, y = 0.18,
-    label = paste0("AUC = ", round(auc_gb$.estimate, 3)),
+    label = paste0("AUC = ", fmt_br(auc_gb$.estimate)),
     size = 4.5, fontface = "bold", color = "#2166ac", hjust = 0
   ) +
   labs(
-    title   = "Curva ROC: XGBoost",
-    x       = "1 - Especificidade (taxa de falsos positivos)",
-    y       = "Sensibilidade (taxa de verdadeiros positivos)",
-    caption = paste0(
-      "AUC = ", round(auc_gb$.estimate, 3),
-      " | Diagonal pontilhada = modelo aleatório (AUC = 0,5)",
-      " | Ponto vermelho = limiar ótimo (Youden)"
-    )
+    title    = "Curva ROC: Gradient Boosting (XGBoost)",
+    subtitle = "Análise 1 (9 preditores): NHANES 2021-2023",
+    x        = "1 − Especificidade  (taxa de falsos positivos)",
+    y        = "Sensibilidade  (taxa de verdadeiros positivos)",
+    caption  = "Diagonal pontilhada = modelo aleatório (AUC = 0,5)  |  Ponto vermelho = limiar ótimo (Youden)"
   ) +
   theme_minimal(base_size = 12) +
   theme(plot.caption = element_text(color = "gray40", size = 9))
@@ -362,15 +359,15 @@ print(p_vip)
 ggsave("output/03_gradient_boosting/xgboost_importancia.png", plot = p_vip, width = 7, height = 5, dpi = 150, bg = "white")
 
 # ══════════════════════════════════════════════════════════════════════════════
-# 7. IMPORTÂNCIA POR PERMUTAÇÃO — MÉTODO AGNÓSTICO DE MODELO
+# 7. IMPORTÂNCIA POR PERMUTAÇÃO: MÉTODO AGNÓSTICO DE MODELO
 # ══════════════════════════════════════════════════════════════════════════════
 # A importância acima (ganho) ensina a MECÂNICA interna do boosting.
 # Esta aqui é um EXPERIMENTO: embaralhamos UMA variável por vez nos dados de
 # teste e medimos quanto o AUC cai. Queda grande = o modelo depende dela.
 # Por ser agnóstica de modelo, é a única métrica de importância comparável
-# ENTRE os scripts 02–04 (Gini ≠ ganho ≠ Olden).
+# ENTRE os scripts 02-04 (Gini ≠ ganho ≠ Olden).
 # NOTA: a permutação atua nas variáveis BRUTAS (sexo, raca...), não nas
-# dummies da receita — por isso o mapa de rótulos aqui usa os nomes brutos.
+# dummies da receita: por isso o mapa de rótulos aqui usa os nomes brutos.
 
 pred_prob <- function(object, newdata) {
   predict(object, newdata, type = "prob")$.pred_Sim
