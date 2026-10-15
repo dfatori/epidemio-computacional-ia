@@ -73,9 +73,9 @@ Modelo preditivo de hipertensão em adultos com 9 preditores sociodemográficos 
 | 03 | `03_gradient_boosting.R` | Gradient Boosting |
 | 04 | `04_rede_neural.R` | Rede Neural MLP |
 
-## Variáveis preditoras
+## Preditores da Análise 1
 
-[Tabela descritiva dos dados](output/00_config/tabela_descritiva.png)
+[Tabela descritiva dos 9 preditores](output/00_config/tabela_descritiva.png). A tabela usa a mesma amostra da modelagem e não inclui o desfecho.
 
 ---
 
@@ -85,9 +85,9 @@ Modelo preditivo de hipertensão em adultos com 21 preditores sociodemográficos
 
 ---
 
-## Variáveis preditoras
+## Preditores do exercício
 
-[Tabela descritiva dos dados ampliados](output/exercicio/tabela_descritiva_ampliada.png)
+[Tabela descritiva dos 21 preditores](output/exercicio/tabela_descritiva_ampliada.png). A tabela usa a mesma amostra da modelagem e não inclui o desfecho.
 
 ---
 

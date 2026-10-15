@@ -175,53 +175,7 @@ nhanes_cardio <- nhanes_cardio %>%
 nhanes_cardio <- nhanes_cardio %>%
   filter(idade >= 18)
 
-# ── 7. Tabela descritiva final (labels em PT-BR) ──────────────────────────────
-tabela_desc <- nhanes_cardio %>%
-  select(-SEQN) %>%
-  tbl_summary(
-    missing = "ifany",
-    missing_text = "Perda",
-    statistic = list(all_continuous() ~ "{mean} ({sd})"),
-    label = list(
-      idade      ~ "Idade (anos)",
-      sexo       ~ "Sexo",
-      raca       ~ "Raça/Etnia",
-      renda      ~ "Renda (razão pobreza)",
-      imc        ~ "IMC (kg/m²)",
-      cintura    ~ "Circunferência abdominal (cm)",
-      altura     ~ "Estatura (cm)",
-      whr        ~ "Razão cintura/estatura",
-      diabetes   ~ "Diabetes",
-      colesterol ~ "Colesterol total (mg/dL)",
-      fumante      ~ "Tabagismo",
-      sedentarismo ~ "Sedentarismo (min/dia sentado)",
-      pas          ~ "Pressão arterial sistólica (mmHg)",
-      has_pas      ~ "Hipertensão (≥ 140 mmHg)",
-      escolaridade ~ "Escolaridade",
-      est_civil    ~ "Estado civil"
-    )
-  )
-
-# Tabela descritiva em HTML e PNG
-tabela_desc %>% 
-  as_gt() %>% 
-  gt::gtsave("output/00_config/tabela_descritiva.html")
-
-# PNG gerado nativamente (flextable + device png do R), sem depender de
-# navegador: gt::gtsave em PNG exigiria Chrome via webshot2/chromote
-ft_desc <- tabela_desc %>%
-  as_flex_table() %>%
-  flextable::autofit()
-
-dm <- dim(ft_desc)  # dimensões em polegadas: o PNG sai no tamanho exato
-
-png("output/00_config/tabela_descritiva.png",
-    width = sum(dm$widths) * 300, height = sum(dm$heights) * 300, res = 300)
-grid::grid.newpage()
-grid::grid.draw(flextable::gen_grob(ft_desc, fit = "auto"))
-dev.off()
-
-# ── 8. Banco ampliado: marcadores laboratoriais e comportamentais ─────────────
+# ── 7. Banco ampliado: marcadores laboratoriais e comportamentais ─────────────
 # Mesma função de cache. Estas 12 variáveis extras entram no EXERCÍCIO e
 # definem a amostra comum das duas análises (ver seção 9).
 ghb_L    <- nhanes_cache("GHB_L",    "data/ghb_L.rds")    # HbA1c
@@ -324,6 +278,43 @@ cat(sprintf(
   nrow(dados_ampliado), nrow(dados_treino_ampliado), nrow(dados_teste_ampliado),
   length(vars_base), length(vars_ampliado)
 ))
+
+# ── 10. Tabela descritiva dos preditores da Análise 1 ─────────────────────────
+# Usa as mesmas observações completas da modelagem e exclui o desfecho.
+tabela_desc <- dados %>%
+  select(-has_pas) %>%
+  tbl_summary(
+    missing = "ifany",
+    missing_text = "Perda",
+    statistic = list(all_continuous() ~ "{mean} ({sd})"),
+    label = list(
+      idade        ~ "Idade (anos)",
+      sexo         ~ "Sexo",
+      raca         ~ "Raça/Etnia",
+      whr          ~ "Razão cintura/estatura",
+      renda        ~ "Renda (razão pobreza)",
+      colesterol   ~ "Colesterol total (mg/dL)",
+      diabetes     ~ "Diabetes",
+      fumante      ~ "Tabagismo",
+      sedentarismo ~ "Sedentarismo (min/dia sentado)"
+    )
+  )
+
+tabela_desc %>%
+  as_gt() %>%
+  gt::gtsave("output/00_config/tabela_descritiva.html")
+
+ft_desc <- tabela_desc %>%
+  as_flex_table() %>%
+  flextable::autofit()
+
+dm <- dim(ft_desc)
+
+png("output/00_config/tabela_descritiva.png",
+    width = sum(dm$widths) * 300, height = sum(dm$heights) * 300, res = 300)
+grid::grid.newpage()
+grid::grid.draw(flextable::gen_grob(ft_desc, fit = "auto"))
+dev.off()
 
 # ══════════════════════════════════════════════════════════════════════════════
 # fim do script ────────────────────────────────────────────────────────────────

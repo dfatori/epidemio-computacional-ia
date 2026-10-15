@@ -50,19 +50,30 @@ cat(sprintf(
   nrow(dados), ncol(dados) - 1, nrow(dados_treino), nrow(dados_teste)
 ))
 
-# ── 2. Tabela descritiva das variáveis novas ──────────────────────────────────
+# ── 2. Tabela descritiva dos 21 preditores ────────────────────────────────────
 # Salva em output/exercicio/ (mesmo padrão da tabela da Análise 1)
 dir.create("output/exercicio", showWarnings = FALSE)
 
-tabela_desc_ampliada <- nhanes_ext %>%
-  select(hba1c, hdl, pcr, ac_urico, creatinina,
-         alcool, sono_horas, saude_geral,
-         escolaridade, est_civil, imc, freq_cardiaca) %>%
+tabela_desc_ampliada <- dados_ampliado %>%
+  select(-has_pas) %>%
   tbl_summary(
     missing = "ifany",
     missing_text = "Perda",
     statistic = list(all_continuous() ~ "{mean} ({sd})"),
     label = list(
+      idade         ~ "Idade (anos)",
+      sexo          ~ "Sexo",
+      raca          ~ "Raça/Etnia",
+      whr           ~ "Razão cintura/estatura",
+      renda         ~ "Renda (razão pobreza)",
+      colesterol    ~ "Colesterol total (mg/dL)",
+      diabetes      ~ "Diabetes",
+      fumante       ~ "Tabagismo",
+      sedentarismo  ~ "Sedentarismo (min/dia sentado)",
+      escolaridade  ~ "Escolaridade",
+      est_civil     ~ "Estado civil",
+      imc           ~ "IMC (kg/m²)",
+      freq_cardiaca ~ "Frequência cardíaca de repouso (bpm)",
       hba1c         ~ "HbA1c (%)",
       hdl           ~ "HDL (mg/dL)",
       pcr           ~ "PCR alta sensibilidade (mg/L)",
@@ -70,11 +81,7 @@ tabela_desc_ampliada <- nhanes_ext %>%
       creatinina    ~ "Creatinina sérica (mg/dL)",
       alcool        ~ "Álcool (doses/dia)",
       sono_horas    ~ "Horas de sono/noite",
-      saude_geral   ~ "Saúde geral autorrelatada",
-      escolaridade  ~ "Escolaridade",
-      est_civil     ~ "Estado civil",
-      imc           ~ "IMC (kg/m²)",
-      freq_cardiaca ~ "Frequência cardíaca de repouso (bpm)"
+      saude_geral   ~ "Saúde geral autorrelatada"
     )
   )
 
